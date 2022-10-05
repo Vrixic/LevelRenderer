@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="D:\Vrij\Education\Fullsail_Classes\Project And Portfolio 4\LevelRenderer\LevelRenderer\build\CMakeFiles\a9e077f8bedf43309efe923e6c239808\generate.stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{B5E8F5B1-BE40-32B1-8EF0-E1D8F6A7A1BE}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
