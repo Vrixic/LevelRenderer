@@ -59,7 +59,7 @@ class Renderer
 
 	float TimePassed;
 	// TODO: Part 2a
-	GW::MATH::GMatrix matrix;
+	GW::MATH::GMatrix Matrix;
 	GW::MATH::GMATRIXF GridWorldMatrices[6];
 	// TODO: Part 3d
 	// TODO: Part 2e
@@ -105,7 +105,7 @@ public:
 		Controller.Create();
 
 		// TODO: Part 2a -> Create world matrix 
-		matrix.Create(); // Create/enable proxy 
+		Matrix.Create(); // Create/enable proxy 
 		for (int i = 0; i < 6; ++i)
 		{
 			GMatrix::IdentityF(GridWorldMatrices[i]);
@@ -117,48 +117,41 @@ public:
 		TranslateVector.z = 0.0f;
 		TranslateVector.w = 0.0f;
 
-		matrix.TranslateLocalF(GridWorldMatrices[0], TranslateVector, GridWorldMatrices[0]);
-		matrix.RotateXLocalF(GridWorldMatrices[0], DegreesToRadians(90.0f), GridWorldMatrices[0]);
+		Matrix.TranslateLocalF(GridWorldMatrices[0], TranslateVector, GridWorldMatrices[0]);
+		Matrix.RotateXLocalF(GridWorldMatrices[0], DegreesToRadians(90.0f), GridWorldMatrices[0]);
 
 		// TODO: Part 3d
 		// Ceil
 		TranslateVector.y = 0.5f;
-		matrix.TranslateLocalF(GridWorldMatrices[1], TranslateVector, GridWorldMatrices[1]);
-		matrix.RotateXLocalF(GridWorldMatrices[1], DegreesToRadians(90.0f), GridWorldMatrices[1]);
+		Matrix.TranslateLocalF(GridWorldMatrices[1], TranslateVector, GridWorldMatrices[1]);
+		Matrix.RotateXLocalF(GridWorldMatrices[1], DegreesToRadians(90.0f), GridWorldMatrices[1]);
 
 		// Walls
 		TranslateVector.y = 0.0f;
 
 		TranslateVector.z = 0.5f;
-		matrix.TranslateLocalF(GridWorldMatrices[2], TranslateVector, GridWorldMatrices[2]);
+		Matrix.TranslateLocalF(GridWorldMatrices[2], TranslateVector, GridWorldMatrices[2]);
 
 		TranslateVector.z = -0.5f;
-		matrix.TranslateLocalF(GridWorldMatrices[3], TranslateVector, GridWorldMatrices[3]);
+		Matrix.TranslateLocalF(GridWorldMatrices[3], TranslateVector, GridWorldMatrices[3]);
 
 		TranslateVector.z = 0.0f;
 
 		TranslateVector.x = 0.5f;
-		matrix.TranslateLocalF(GridWorldMatrices[4], TranslateVector, GridWorldMatrices[4]);
-		matrix.RotateYLocalF(GridWorldMatrices[4], DegreesToRadians(90.0f), GridWorldMatrices[4]);
+		Matrix.TranslateLocalF(GridWorldMatrices[4], TranslateVector, GridWorldMatrices[4]);
+		Matrix.RotateYLocalF(GridWorldMatrices[4], DegreesToRadians(90.0f), GridWorldMatrices[4]);
 
 		TranslateVector.x = -0.5f;
-		matrix.TranslateLocalF(GridWorldMatrices[5], TranslateVector, GridWorldMatrices[5]);
-		matrix.RotateYLocalF(GridWorldMatrices[5], DegreesToRadians(90.0f), GridWorldMatrices[5]);
+		Matrix.TranslateLocalF(GridWorldMatrices[5], TranslateVector, GridWorldMatrices[5]);
+		Matrix.RotateYLocalF(GridWorldMatrices[5], DegreesToRadians(90.0f), GridWorldMatrices[5]);
 
 		// TODO: Part 2e -> Create the view matrix
-		matrix.IdentityF(GridViewMatrix);
+		Matrix.IdentityF(GridViewMatrix);
 		GVECTORF Eye = { 0.25, -0.125, -0.25, 1.0 };
 		GVECTORF At = { 0.0, -0.5, 0.0, 1.0 };
 		GVECTORF Up = { 0.0, 1.0, 0.0, 1.0 };
 
-		matrix.LookAtLHF(Eye, At, Up, GridViewMatrix);
-
-		GMATRIXF temp = { 1, 1, 1, 1, 2, 3, 1, 1, 4, 5, 1, 1, 6, 3, 5, 1 };
-		float d = 0.0f;
-		matrix.DeterminantF(temp, d); std::cout << d << std::endl;
-		GMATRIXF temp1;
-		matrix.IdentityF(temp1);
-		matrix.InverseF(temp, temp1);
+		Matrix.LookAtLHF(Eye, At, Up, GridViewMatrix);
 
 		//matrix.TranslateLocalF(GridViewMatrix, Eye, GridViewMatrix);
 		//matrix.RotateYLocalF(GridViewMatrix, DegreesToRadians(-45.0f), GridViewMatrix);
@@ -514,34 +507,36 @@ public:
 		float PerFrameSpeed = TimePassed * CameraSpeed;
 
 		// TODO: Part 4c
-		matrix.InverseF(GridViewMatrix, GridViewMatrix);
+		Matrix.InverseF(GridViewMatrix, GridViewMatrix);
 
 		// TODO: Part 4d -> Camera Movement Y
 		GMATRIXF CameraTranslationMatrix;
-		matrix.IdentityF(CameraTranslationMatrix);
+		Matrix.IdentityF(CameraTranslationMatrix);
 
-		GW::MATH::GVECTORF CameraTranslateVector = { 0.0f, 0.0f, 0.0f, 0.0f };
+		GW::MATH::GVECTORF CameraTranslateVector = { 0.0f, 0.0f, 0.0f, 1.0f };
 		CameraTranslateVector.y += DeltaY * PerFrameSpeed;
+		Matrix.TranslateGlobalF(CameraTranslationMatrix, CameraTranslateVector, CameraTranslationMatrix);
+		CameraTranslateVector.y = 0;
 		// TODO: Part 4e -> Camera Movement XZ
 		CameraTranslateVector.x = DeltaX * PerFrameSpeed;
 		CameraTranslateVector.z = DeltaZ * PerFrameSpeed;
-		matrix.TranslateLocalF(CameraTranslationMatrix, CameraTranslateVector, CameraTranslationMatrix);
-		matrix.MultiplyMatrixF(CameraTranslationMatrix, GridViewMatrix, GridViewMatrix);
+		Matrix.TranslateLocalF(CameraTranslationMatrix, CameraTranslateVector, CameraTranslationMatrix);
+		Matrix.MultiplyMatrixF(CameraTranslationMatrix, GridViewMatrix, GridViewMatrix);
 		// TODO: Part 4f -> Pitch Rotation 
 		GMATRIXF PitchMatrix;
-		matrix.IdentityF(PitchMatrix);
-		matrix.RotateXLocalF(PitchMatrix, DegreesToRadians(TotalPitch), PitchMatrix);
-		matrix.MultiplyMatrixF(PitchMatrix, GridViewMatrix, GridViewMatrix);
+		Matrix.IdentityF(PitchMatrix);
+		Matrix.RotateXLocalF(PitchMatrix, DegreesToRadians(TotalPitch), PitchMatrix);
+		Matrix.MultiplyMatrixF(PitchMatrix, GridViewMatrix, GridViewMatrix);
 		// TODO: Part 4g -> Yaw Rotation
 		GMATRIXF YawMatrix;
-		matrix.IdentityF(YawMatrix);
-		matrix.RotateYGlobalF(YawMatrix, DegreesToRadians(TotalYaw), YawMatrix);
+		Matrix.IdentityF(YawMatrix);
+		Matrix.RotateYGlobalF(YawMatrix, DegreesToRadians(TotalYaw), YawMatrix);
 		GVECTORF CameraPosition = GridViewMatrix.row4;
-		matrix.MultiplyMatrixF(GridViewMatrix, YawMatrix, GridViewMatrix);
+		Matrix.MultiplyMatrixF(GridViewMatrix, YawMatrix, GridViewMatrix);
 		GridViewMatrix.row4 = CameraPosition;
 
 		// TODO: Part 4c
-		matrix.InverseF(GridViewMatrix, GridViewMatrix);
+		Matrix.InverseF(GridViewMatrix, GridViewMatrix);
 
 		std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 		using ms = std::chrono::duration<float, std::milli>;

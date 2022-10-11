@@ -313,8 +313,18 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\Math\VrixicMath.cpp" />
     <ClCompile Include="D:\Vrij\Education\Fullsail_Classes\Project And Portfolio 4\LevelRenderer\LevelRenderer\main.cpp" />
-    <ClInclude Include="D:\Vrij\Education\Fullsail_Classes\Project And Portfolio 4\LevelRenderer\LevelRenderer\renderer.h" />
+    <ClCompile Include="Renderable.cpp" />
+    <ClInclude Include="..\h2bParser.h" />
+    <ClInclude Include="..\Math\Matrix4D.h" />
+    <ClInclude Include="..\Math\Vector2D.h" />
+    <ClInclude Include="..\Math\Vector3D.h" />
+    <ClInclude Include="..\Math\Vector4D.h" />
+    <ClInclude Include="..\Math\VrixicMath.h" />
+    <ClInclude Include="..\Math\VrixicMathDirectX.h" />
+    <ClInclude Include="..\Math\VrixicMathHelper.h" />
+    <ClInclude Include="Renderable.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="D:\Vrij\Education\Fullsail_Classes\Project And Portfolio 4\LevelRenderer\LevelRenderer\build\ZERO_CHECK.vcxproj">

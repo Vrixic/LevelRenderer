@@ -14,6 +14,7 @@
 // With what we want & what we don't defined we can include the API
 #include "Gateware.h"
 #include "renderer.h"
+#include "h2bParser.h"
 #include <fstream>
 
 // open some namespaces to compact the code a bit
@@ -22,41 +23,113 @@ using namespace CORE;
 using namespace SYSTEM;
 using namespace GRAPHICS;
 
+
+struct StaticMesh
+{
+	std::string Name;
+
+	/* Mesh Info */
+	unsigned int VertexCount;
+	unsigned int IndexCount;
+	unsigned int MaterialCount;
+	unsigned int MeshCount;
+
+	std::vector<H2B::VERTEX> Vertices;
+	std::vector<unsigned int> Indices;
+	std::vector<H2B::MATERIAL> Materials;
+	std::vector<H2B::BATCH> Batches;
+	std::vector<H2B::MESH> Meshes;
+
+	std::vector<GW::MATH::GMATRIXF> WorldMatrices;
+	unsigned int InstanceCount;
+};
+
 GW::MATH::GVECTORF ReadVectorFromString(std::string& str)
 {
 	GW::MATH::GVECTORF V = {};
 	unsigned int VIndex = 0;
 	std::string Num = "";
 
-	for (unsigned int i = 0; i < str.length(); ++i)
+	for (unsigned int i = 0; i < str.length() - 1; ++i)
 	{
 		unsigned int AcsiiChar = static_cast<unsigned int>(str[i]);
 		if (str[i] == ',')
 		{
-			V.data[VIndex++] = std::atof(Num.c_str());
+			V.data[VIndex] = std::stof(Num.c_str());
+			VIndex++;
 			Num.clear();
 		}
-		else if ((AcsiiChar >= 48 && AcsiiChar <= 57) || AcsiiChar == 46 || AcsiiChar == 45)
+		else if ((AcsiiChar >= 45 && AcsiiChar <= 57) && AcsiiChar != 47)
 		{
 			Num.push_back(str[i]);
 		}
+
 	}
 
 	return V;
 }
 
-std::vector<GW::MATH::GMATRIXF>& ReadGameLevelFile()
+bool FillStaticMeshFromH2BFile(const char* filePath, H2B::Parser& parser, StaticMesh& outMesh)
 {
-	std::vector<GW::MATH::GMATRIXF> Matrices;
+	if (parser.Parse(filePath))
+	{
+		outMesh.VertexCount = parser.vertexCount;
+		outMesh.IndexCount = parser.indexCount;
+		outMesh.MaterialCount = parser.materialCount;
+		outMesh.MeshCount = parser.meshCount;
+		outMesh.Vertices = parser.vertices;
+		outMesh.Indices = parser.indices;
+		outMesh.Materials = parser.materials;
+		outMesh.Batches = parser.batches;
+		outMesh.Meshes = parser.meshes;
 
+		std::cout << "[H2B]: Successfully parsed file" << " filePath" << "....\n";
+
+		return true;
+	}
+
+	return false;
+}
+
+void ReadMatrixFromFile(std::ifstream& fileHandle, GW::MATH::GMATRIXF& outMatrix, std::string& outMatrixString)
+{
+	outMatrixString.clear();
+
+	std::string Line = "";
+	std::getline(fileHandle, Line, '('); // Read Matrix Header
+	outMatrixString.append(Line + "("); 
+
+	std::getline(fileHandle, Line, ')'); // read row 1
+	outMatrixString.append(Line + ")");
+	outMatrix.row1 = ReadVectorFromString(Line);
+
+	std::getline(fileHandle, Line, ')'); // read row 2
+	outMatrixString.append(Line + ")");
+	outMatrix.row2 = ReadVectorFromString(Line);
+
+	std::getline(fileHandle, Line, ')'); // read row 3
+	outMatrixString.append(Line + ")");
+	outMatrix.row3 = ReadVectorFromString(Line);
+
+	std::getline(fileHandle, Line, ')'); // read row 4
+	outMatrixString.append(Line + ")>\n\n");
+	outMatrix.row4 = ReadVectorFromString(Line);
+}
+
+void ReadGameLevelFile(std::vector<StaticMesh>& Meshes)
+{
 	std::ifstream FileHandle("../GameLevel.txt");
+	std::string LastMeshName = "";
 	std::string Line = "";
 	GW::MATH::GMATRIXF Matrix;
+	unsigned int MeshIndex = -1;
 
-	std::cout << "Opening File: GameLevel.txt\n";
+	H2B::Parser Parser;
+
+	std::cout << "[FILE] Opening GameLevel.txt\n";
 	if (FileHandle.is_open())
 	{
-		std::cout << "File Opened: GameLevel.txt\n";
+		std::cout << "[FILE] Opened GameLevel.txt\n";
 		while (true)
 		{
 			std::getline(FileHandle, Line);
@@ -66,42 +139,80 @@ std::vector<GW::MATH::GMATRIXF>& ReadGameLevelFile()
 			if (std::strcmp(Line.c_str(), "MESH") == 0)
 			{
 				/* Read Mesh Infomation */
-				std::cout << "[Mesh Found]: ";
-
 				std::getline(FileHandle, Line, '\n');
 
-				std::cout << Line << "\n";
+				/* Mesh name
+				* Better to go backwards maybe, since we only have to look for the peroid
+				* if it exists, if not only one instance exists for the current Mesh
+				* else there are more instances of the same mesh
+				*/
+				bool bIsInstance = false;
+				std::string CurrentMeshName = Line;
+				for (unsigned int i = Line.length() - 1; i > 0; --i)
+				{
+					if (Line[i] == '.') // an insance of current mesh or new mesh
+					{
+						bIsInstance = true;
+						break;
+					}
+
+					Line.pop_back();
+				}
+
+				Line.pop_back(); // Account for a period or one character 
+
+				if (!bIsInstance || std::strcmp(LastMeshName.c_str(), Line.c_str()) != 0)
+				{
+					bool bNewMesh = true;
+					LastMeshName = Line.length() == 0 ? CurrentMeshName : Line;
+
+					// Check if the mesh was previously added
+					for (unsigned int i = 0; i < Meshes.size(); ++i)
+					{
+						if (std::strcmp(Meshes[i].Name.c_str(), LastMeshName.c_str()) == 0)
+						{
+							bNewMesh = false;
+							MeshIndex = i;
+							break;
+						}
+					}
+
+					/* New mesh */
+					if (bNewMesh)
+					{
+						std::cout << "[Mesh Found]: " << LastMeshName << "\n";
+
+						StaticMesh EmptyMesh;
+						EmptyMesh.Name = LastMeshName;
+						EmptyMesh.InstanceCount = 0;
+
+						if (!FillStaticMeshFromH2BFile(("../Assets/h2b/" + LastMeshName + ".h2b").c_str(), Parser, EmptyMesh))
+						{
+							std::cout << "[Error]: Mesh h2b file could not be read or found....\n";
+						}
+
+						Meshes.push_back(EmptyMesh);
+						MeshIndex = Meshes.size() - 1;
+					}
+				}
+
+				Meshes[MeshIndex].InstanceCount++;
+				std::cout << "[Mesh Instance]: " << LastMeshName << ": " << Meshes[MeshIndex].InstanceCount << "\n";
 
 				/* Read the Matrix */
+				ReadMatrixFromFile(FileHandle, Matrix, Line);
+				std::cout << Line;
 
-				// Read Matrix Header
-				std::getline(FileHandle, Line, '(');
-				std::cout << Line << "("; // Print Matrix Header
-
-				std::getline(FileHandle, Line, ')'); // read row 1
-				std::cout << Line << ")";
-				Matrix.row1 = ReadVectorFromString(Line);
-
-				std::getline(FileHandle, Line, ')'); // read row 2
-				std::cout << Line << ")";
-				Matrix.row2 = ReadVectorFromString(Line);
-
-				std::getline(FileHandle, Line, ')'); // read row 3
-				std::cout << Line << ")";
-				Matrix.row3 = ReadVectorFromString(Line);
-
-				std::getline(FileHandle, Line, ')'); // read row 4
-				std::cout << Line << ")>\n\n";
-				Matrix.row4 = ReadVectorFromString(Line);
-
-				Matrices.push_back(Matrix);
+				Meshes[MeshIndex].WorldMatrices.push_back(Matrix);
 			}
 		}
 
 		FileHandle.close();
 	}
-
-	return Matrices;
+	else
+	{
+		std::cout << "[FILE] Error could not open file..." << std::endl;
+	}
 }
 
 // lets pop a window and use Vulkan to clear to a red screen
@@ -111,7 +222,8 @@ int main()
 	GEventResponder msgs;
 	GVulkanSurface vulkan;
 
-	ReadGameLevelFile();
+	std::vector<StaticMesh> Meshes;
+	ReadGameLevelFile(Meshes);
 
 	if (+win.Create(0, 0, 800, 600, GWindowStyle::WINDOWEDBORDERED))
 	{
@@ -132,9 +244,9 @@ int main()
 			//"VK_LAYER_LUNARG_standard_validation", // add if not on MacOS
 			//"VK_LAYER_RENDERDOC_Capture" // add this if you have installed RenderDoc
 		};
-		if (+vulkan.Create(	win, GW::GRAPHICS::DEPTH_BUFFER_SUPPORT, 
-							sizeof(debugLayers)/sizeof(debugLayers[0]),
-							debugLayers, 0, nullptr, 0, nullptr, false))
+		if (+vulkan.Create(win, GW::GRAPHICS::DEPTH_BUFFER_SUPPORT,
+			sizeof(debugLayers) / sizeof(debugLayers[0]),
+			debugLayers, 0, nullptr, 0, nullptr, false))
 #else
 		if (+vulkan.Create(win, GW::GRAPHICS::DEPTH_BUFFER_SUPPORT))
 #endif
