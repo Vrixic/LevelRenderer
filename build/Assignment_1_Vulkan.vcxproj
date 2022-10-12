@@ -313,18 +313,10 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\Math\VrixicMath.cpp" />
     <ClCompile Include="D:\Vrij\Education\Fullsail_Classes\Project And Portfolio 4\LevelRenderer\LevelRenderer\main.cpp" />
-    <ClCompile Include="Renderable.cpp" />
-    <ClInclude Include="..\h2bParser.h" />
-    <ClInclude Include="..\Math\Matrix4D.h" />
-    <ClInclude Include="..\Math\Vector2D.h" />
-    <ClInclude Include="..\Math\Vector3D.h" />
-    <ClInclude Include="..\Math\Vector4D.h" />
-    <ClInclude Include="..\Math\VrixicMath.h" />
-    <ClInclude Include="..\Math\VrixicMathDirectX.h" />
-    <ClInclude Include="..\Math\VrixicMathHelper.h" />
-    <ClInclude Include="Renderable.h" />
+    <ClCompile Include="FileHelper.cpp" />
+    <ClInclude Include="D:\Vrij\Education\Fullsail_Classes\Project And Portfolio 4\LevelRenderer\LevelRenderer\renderer.h" />
+    <ClInclude Include="FileHelper.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="D:\Vrij\Education\Fullsail_Classes\Project And Portfolio 4\LevelRenderer\LevelRenderer\build\ZERO_CHECK.vcxproj">
@@ -333,6 +325,20 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Shaders\BasicPixel.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="..\Shaders\BasicVertex.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="..\Shaders\ModelPixel.hlsl">
+      <FileType>Document</FileType>
+    </None>
+    <None Include="..\Shaders\ModelVertex.hlsl">
+      <FileType>Document</FileType>
+    </None>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

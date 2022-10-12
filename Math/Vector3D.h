@@ -1,4 +1,5 @@
 #pragma once
+#include <corecrt_math.h>
 
 /* Row vector */
 struct Vector3D

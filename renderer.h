@@ -3,48 +3,10 @@
 #ifdef _WIN32 // must use MT platform DLL libraries on windows
 #pragma comment(lib, "shaderc_combined.lib") 
 #endif
-// Simple Vertex Shader
-const char* vertexShaderSource = R"(
-#pragma pack_matrix( row_major )   
-// an ultra simple hlsl vertex shader
-// TODO: Part 2b
-[[vk::push_constant]]
-cbuffer ConstantBuffer
-{
-	matrix World;
-	matrix View;
-};
-// TODO: Part 2f, Part 3b
-// TODO: Part 1c
-struct VSInput
-{
-	float4 Position : POSITION;
-};
-float4 main(VSInput inputVertex) : SV_POSITION
-{
-	// TODO: Part 2d
-	float4 posWorld = mul(inputVertex.Position, World);
-	// TODO: Part 2f, Part 3b
-	float4 posView = mul(posWorld, View);
-
-	return posView;
-}
-)";
-// Simple Pixel Shader
-const char* pixelShaderSource = R"(
-// an ultra simple hlsl pixel shader
-float4 main() : SV_TARGET 
-{	
-	return float4(0.0f ,0.75f, 0.75f, 0); // TODO: Part 1a
-}
-)";
-
-#define PI 3.14159265359
-
-float DegreesToRadians(float Degrees)
-{
-	return Degrees * (PI / 180.0f);
-}
+#include "Math/Matrix4D.h"
+#include "Math/VrixicMathHelper.h"
+#include "h2bParser.h"
+#include "build/FileHelper.h"
 
 // Creation, Rendering & Cleanup
 class Renderer
@@ -104,6 +66,16 @@ public:
 		Input.Create(_win);
 		Controller.Create();
 
+		/*LevelData* WorldData;
+		{
+			std::vector<RawMeshData> RawDatas;
+			FileHelper::ReadGameLevelFile("../GameLevel.txt", RawDatas);
+
+			WorldData = new LevelData(&device, &vlk, RawDatas);
+		}
+
+		delete WorldData;*/
+
 		// TODO: Part 2a -> Create world matrix 
 		Matrix.Create(); // Create/enable proxy 
 		for (int i = 0; i < 6; ++i)
@@ -118,13 +90,13 @@ public:
 		TranslateVector.w = 0.0f;
 
 		Matrix.TranslateLocalF(GridWorldMatrices[0], TranslateVector, GridWorldMatrices[0]);
-		Matrix.RotateXLocalF(GridWorldMatrices[0], DegreesToRadians(90.0f), GridWorldMatrices[0]);
+		Matrix.RotateXLocalF(GridWorldMatrices[0], Math::DegreesToRadians(90.0f), GridWorldMatrices[0]);
 
 		// TODO: Part 3d
 		// Ceil
 		TranslateVector.y = 0.5f;
 		Matrix.TranslateLocalF(GridWorldMatrices[1], TranslateVector, GridWorldMatrices[1]);
-		Matrix.RotateXLocalF(GridWorldMatrices[1], DegreesToRadians(90.0f), GridWorldMatrices[1]);
+		Matrix.RotateXLocalF(GridWorldMatrices[1], Math::DegreesToRadians(90.0f), GridWorldMatrices[1]);
 
 		// Walls
 		TranslateVector.y = 0.0f;
@@ -139,11 +111,11 @@ public:
 
 		TranslateVector.x = 0.5f;
 		Matrix.TranslateLocalF(GridWorldMatrices[4], TranslateVector, GridWorldMatrices[4]);
-		Matrix.RotateYLocalF(GridWorldMatrices[4], DegreesToRadians(90.0f), GridWorldMatrices[4]);
+		Matrix.RotateYLocalF(GridWorldMatrices[4], Math::DegreesToRadians(90.0f), GridWorldMatrices[4]);
 
 		TranslateVector.x = -0.5f;
 		Matrix.TranslateLocalF(GridWorldMatrices[5], TranslateVector, GridWorldMatrices[5]);
-		Matrix.RotateYLocalF(GridWorldMatrices[5], DegreesToRadians(90.0f), GridWorldMatrices[5]);
+		Matrix.RotateYLocalF(GridWorldMatrices[5], Math::DegreesToRadians(90.0f), GridWorldMatrices[5]);
 
 		// TODO: Part 2e -> Create the view matrix
 		Matrix.IdentityF(GridViewMatrix);
@@ -153,45 +125,14 @@ public:
 
 		Matrix.LookAtLHF(Eye, At, Up, GridViewMatrix);
 
-		//matrix.TranslateLocalF(GridViewMatrix, Eye, GridViewMatrix);
-		//matrix.RotateYLocalF(GridViewMatrix, DegreesToRadians(-45.0f), GridViewMatrix);
-		//matrix.RotateXLocalF(GridViewMatrix, DegreesToRadians(20.0f), GridViewMatrix);
-		//matrix.InverseF(GridViewMatrix, GridViewMatrix);
-
 		/***************** GEOMETRY INTIALIZATION ******************/
 		// Grab the device & physical device so we can allocate some stuff
 		VkPhysicalDevice physicalDevice = nullptr;
 		vlk.GetDevice((void**)&device);
 		vlk.GetPhysicalDevice((void**)&physicalDevice);
 
-		// TODO: Part 1b -> extend verts for line list
-		/*float verts[] =
-		{
-			0.0f, 0.5f,
-			0.5f, -0.5f,
-
-			0.5f, -0.5f,
-			-0.5f, -0.5f,
-
-			-0.5f, -0.5f,
-			0.0f, 0.5f,
-		};*/
-		// TODO: Part 1c - > Convert float verts to Vertex verts
-		/*Vertex verts[] =
-		{
-			{0.0f, 0.5f, 0.0f, 1.0f},
-			{0.5f, -0.5f, 0.0f, 1.0f},
-
-			{0.5f, -0.5f, 0.0f, 1.0f},
-			{-0.5f, -0.5f, 0.0f, 1.0f},
-
-			{-0.5f, -0.5f, 0.0f, 1.0f},
-			{0.0f, 0.5f, 0.0f, 1.0f}
-		};*/
 		// Create Vertex Buffer
 		Vertex verts[104] = { 0 };
-
-		// TODO: Part 1d -> Make Grid
 
 		float VertX = 0.5f;
 		float VertY = 0.5f;
@@ -232,9 +173,12 @@ public:
 #ifndef NDEBUG
 		shaderc_compile_options_set_generate_debug_info(options);
 #endif
+		std::string VertexShaderSource = FileHelper::LoadShaderFileIntoString("../Shaders/BasicVertex.hlsl");
+		std::string PixelShaderSource = FileHelper::LoadShaderFileIntoString("../Shaders/BasicPixel.hlsl");
+
 		// Create Vertex Shader
 		shaderc_compilation_result_t result = shaderc_compile_into_spv( // compile
-			compiler, vertexShaderSource, strlen(vertexShaderSource),
+			compiler, VertexShaderSource.c_str(), VertexShaderSource.length(),
 			shaderc_vertex_shader, "main.vert", "main", options);
 		if (shaderc_result_get_compilation_status(result) != shaderc_compilation_status_success) // errors?
 			std::cout << "Vertex Shader Errors: " << shaderc_result_get_error_message(result) << std::endl;
@@ -243,7 +187,7 @@ public:
 		shaderc_result_release(result); // done
 		// Create Pixel Shader
 		result = shaderc_compile_into_spv( // compile
-			compiler, pixelShaderSource, strlen(pixelShaderSource),
+			compiler, PixelShaderSource.c_str(), PixelShaderSource.length() ,
 			shaderc_fragment_shader, "main.frag", "main", options);
 		if (shaderc_result_get_compilation_status(result) != shaderc_compilation_status_success) // errors?
 			std::cout << "Pixel Shader Errors: " << shaderc_result_get_error_message(result) << std::endl;
@@ -427,7 +371,7 @@ public:
 		// TODO: Part 3a -> Projection matrix
 		GW::MATH::GMATRIXF ProjectionMatrix;
 		GW::MATH::GMatrix::IdentityF(ProjectionMatrix);
-		float FOV = DegreesToRadians(65);
+		float FOV = Math::DegreesToRadians(65);
 		float NearPlane = 0.1f;
 		float FarPlane = 100.0f;
 		float AspectRatio = 0.0f;
@@ -452,6 +396,7 @@ public:
 			ConstantBuffer.World = GridWorldMatrices[i];
 			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShaderVars), &ConstantBuffer);
 			vkCmdDraw(commandBuffer, 104, 1, 0, 0);
+
 		}
 	}
 	// TODO: Part 4b
@@ -499,8 +444,8 @@ public:
 		float DeltaZ = WKeyState - SKeyState + LeftStickYAxis;
 		float ThumbSpeed = PI * TimePassed;
 
-		float TotalPitch = (DegreesToRadians(65.0f) * MouseDeltaY / ScreenHeight + RightStickYAxis * -ThumbSpeed) * CameraRotationSpeed;
-		float TotalYaw = (DegreesToRadians(65.0f) * MouseDeltaX / ScreenWidth + RightStickXAxis * ThumbSpeed) * CameraRotationSpeed;
+		float TotalPitch = (Math::DegreesToRadians(65.0f) * MouseDeltaY / ScreenHeight + RightStickYAxis * -ThumbSpeed) * CameraRotationSpeed;
+		float TotalYaw = (Math::DegreesToRadians(65.0f) * MouseDeltaX / ScreenWidth + RightStickXAxis * ThumbSpeed) * CameraRotationSpeed;
 
 		// Camera Variables
 		const float CameraSpeed = 0.3f;
@@ -516,6 +461,8 @@ public:
 		GW::MATH::GVECTORF CameraTranslateVector = { 0.0f, 0.0f, 0.0f, 1.0f };
 		CameraTranslateVector.y += DeltaY * PerFrameSpeed;
 		Matrix.TranslateGlobalF(CameraTranslationMatrix, CameraTranslateVector, CameraTranslationMatrix);
+		Matrix.MultiplyMatrixF(GridViewMatrix, CameraTranslationMatrix, GridViewMatrix);
+		Matrix.IdentityF(CameraTranslationMatrix);
 		CameraTranslateVector.y = 0;
 		// TODO: Part 4e -> Camera Movement XZ
 		CameraTranslateVector.x = DeltaX * PerFrameSpeed;
@@ -525,12 +472,12 @@ public:
 		// TODO: Part 4f -> Pitch Rotation 
 		GMATRIXF PitchMatrix;
 		Matrix.IdentityF(PitchMatrix);
-		Matrix.RotateXLocalF(PitchMatrix, DegreesToRadians(TotalPitch), PitchMatrix);
+		Matrix.RotateXLocalF(PitchMatrix, Math::DegreesToRadians(TotalPitch), PitchMatrix);
 		Matrix.MultiplyMatrixF(PitchMatrix, GridViewMatrix, GridViewMatrix);
 		// TODO: Part 4g -> Yaw Rotation
 		GMATRIXF YawMatrix;
 		Matrix.IdentityF(YawMatrix);
-		Matrix.RotateYGlobalF(YawMatrix, DegreesToRadians(TotalYaw), YawMatrix);
+		Matrix.RotateYGlobalF(YawMatrix, Math::DegreesToRadians(TotalYaw), YawMatrix);
 		GVECTORF CameraPosition = GridViewMatrix.row4;
 		Matrix.MultiplyMatrixF(GridViewMatrix, YawMatrix, GridViewMatrix);
 		GridViewMatrix.row4 = CameraPosition;

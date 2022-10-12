@@ -4,54 +4,33 @@
     <ClCompile Include="D:\Vrij\Education\Fullsail_Classes\Project And Portfolio 4\LevelRenderer\LevelRenderer\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Renderable.cpp" />
-    <ClCompile Include="..\Math\VrixicMath.cpp">
-      <Filter>Source Files\Math</Filter>
+    <ClCompile Include="FileHelper.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\h2bParser.h" />
-    <ClInclude Include="Renderable.h" />
-    <ClInclude Include="..\Math\Matrix4D.h">
-      <Filter>Headers\Math</Filter>
+    <ClInclude Include="D:\Vrij\Education\Fullsail_Classes\Project And Portfolio 4\LevelRenderer\LevelRenderer\renderer.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\Math\Vector2D.h">
-      <Filter>Headers\Math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Math\Vector3D.h">
-      <Filter>Headers\Math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Math\Vector4D.h">
-      <Filter>Headers\Math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Math\VrixicMath.h">
-      <Filter>Headers\Math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Math\VrixicMathDirectX.h">
-      <Filter>Headers\Math</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Math\VrixicMathHelper.h">
-      <Filter>Headers\Math</Filter>
+    <ClInclude Include="FileHelper.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="D:\Vrij\Education\Fullsail_Classes\Project And Portfolio 4\LevelRenderer\LevelRenderer\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{128C500E-058C-33DA-9D84-E4515CA37EDE}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files">
       <UniqueIdentifier>{A8147C37-F523-331E-9982-56B9A4139B08}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Resources">
-      <UniqueIdentifier>{47290a26-1f7a-4272-9ecf-1603a96cf58c}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Headers">
-      <UniqueIdentifier>{dfcc7be5-1652-45a3-82e2-e3cd0172313b}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Headers\Math">
-      <UniqueIdentifier>{8bebd1dc-09c3-433c-8571-2ae1aa5172ef}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\Math">
-      <UniqueIdentifier>{4b8ed3d1-588d-4202-b4ba-7b072ccf0355}</UniqueIdentifier>
-    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Shaders\BasicPixel.hlsl" />
+    <None Include="..\Shaders\BasicVertex.hlsl" />
+    <None Include="..\Shaders\ModelPixel.hlsl" />
+    <None Include="..\Shaders\ModelVertex.hlsl" />
   </ItemGroup>
 </Project>
