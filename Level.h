@@ -1,10 +1,9 @@
 #pragma once
-#define GATEWARE_ENABLE_GRAPHICS // Enables all Graphics Libraries
-
-#include "../Gateware.h"
+#include "GatewareDefine.h"
 #include <iostream>
-#include "vulkan/vulkan_core.h"
+
 #include "LevelData.h"
+#include "StorageBuffer.h"
 
 struct GlobalMeshData
 {
@@ -56,25 +55,35 @@ private:
 	LocalMeshData ShaderLocalData;
 	GlobalMeshData ShaderGlobalData;
 
+	StorageBuffer* GlobalDataBuffer;
+	StorageBuffer* LocalDataBuffer;
+
 	/* Rendering Data */
 private:
 	std::string Name;
+	std::string Path;
 	LevelData* WorldData;
 
 	bool IsDataLoaded;
 
 public:
-	Level(VkDevice* deviceHandle, GW::GRAPHICS::GVulkanSurface* vlkSurface, VkPipelineLayout* pipelineLayout, const char* name)
+	Level(VkDevice* deviceHandle, GW::GRAPHICS::GVulkanSurface* vlkSurface, VkPipelineLayout* pipelineLayout, const char* name, const char* path)
 	{
 		Device = deviceHandle;
 		VlkSurface = vlkSurface;
 		PipelineLayout = pipelineLayout;
 
+		GlobalDataBuffer = nullptr;
+		LocalDataBuffer = nullptr;
+
+		Path = path;
 		Name = name;
 		WorldData = nullptr;
 
 		IsDataLoaded = false;
 	}
+
+	Level(const Level& Other) = delete;
 
 	~Level()
 	{
@@ -97,6 +106,16 @@ public:
 		{
 			delete WorldData;
 		}
+
+		if (GlobalDataBuffer != nullptr)
+		{
+			delete GlobalDataBuffer;
+		}
+
+		if (LocalDataBuffer != nullptr)
+		{
+			delete LocalDataBuffer;
+		}
 	}
 
 public:
@@ -107,19 +126,22 @@ public:
 		{
 			WorldData->Bind();
 
-			unsigned int CurrentBuffer;
-			VlkSurface->GetSwapchainCurrentImage(CurrentBuffer);
+			GlobalDataBuffer->Bind(PipelineLayout);
+			LocalDataBuffer->Bind(PipelineLayout);
 
-			VkCommandBuffer CommandBuffer;
-			VlkSurface->GetCommandBuffer(CurrentBuffer, (void**)&CommandBuffer);
-
-			vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *PipelineLayout, 0, 1, &ShaderGlobalStorageDescSets[CurrentBuffer], 0, nullptr);
-			vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *PipelineLayout, 0, 1, &ShaderLocalStorageDescSets[CurrentBuffer], 0, nullptr);
+			//unsigned int CurrentBuffer;
+			//VlkSurface->GetSwapchainCurrentImage(CurrentBuffer);
+			//
+			//VkCommandBuffer CommandBuffer;
+			//VlkSurface->GetCommandBuffer(CurrentBuffer, (void**)&CommandBuffer);
+			//
+			//vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *PipelineLayout, 0, 1, &ShaderGlobalStorageDescSets[CurrentBuffer], 0, nullptr);
+			//vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *PipelineLayout, 0, 1, &ShaderLocalStorageDescSets[CurrentBuffer], 0, nullptr);
 		}
 	}
 
 	/* Loads all data needed to render the level */
-	void Load(const char* levelPath)
+	void Load()
 	{
 		if (IsDataLoaded)
 		{
@@ -129,19 +151,74 @@ public:
 
 		/* Load the file */
 		std::vector<RawMeshData> RawData;
-		FileHelper::ReadGameLevelFile(levelPath, RawData);
+		FileHelper::ReadGameLevelFile(Path.c_str(), RawData);
 		WorldData = new LevelData(Device, VlkSurface, RawData);
+
+		/* Load the Materices and Materials */
+		for (uint32 i = 0; i < RawData.size(); i++)
+		{
+			for (uint32 j = 0; j < RawData.size(); ++j)
+			{
+				ShaderLocalData.WorldMatrices.push_back(RawData[i].WorldMatrices[j]);
+			}
+			
+			for (uint32 j = 0; j < RawData[i].MaterialCount; ++j)
+			{
+				Material Mat;
+				Mat.Diffuse = reinterpret_cast<Vector3D&>(RawData[i].Materials[j].attrib.Kd);
+				Mat.Dissolve = RawData[i].Materials[j].attrib.d;
+				Mat.SpecularColor = reinterpret_cast<Vector3D&>(RawData[i].Materials[j].attrib.Ks);
+				Mat.SpecularExponent = RawData[i].Materials[j].attrib.Ns;
+				Mat.Ambient = reinterpret_cast<Vector3D&>(RawData[i].Materials[j].attrib.Ka);
+				Mat.Sharpness = RawData[i].Materials[j].attrib.sharpness;
+				Mat.TransmissionFilter = reinterpret_cast<Vector3D&>(RawData[i].Materials[j].attrib.Tf);
+				Mat.OpticalDensity = RawData[i].Materials[j].attrib.Ni;
+				Mat.Emissive = reinterpret_cast<Vector3D&>(RawData[i].Materials[j].attrib.Ke);
+				Mat.IlluminationModel = RawData[i].Materials[j].attrib.illum;
+
+				ShaderLocalData.Materials.push_back(Mat);
+			}
+		}
+
+		/* Load Global Stuff */
+		GW::MATH::GMatrix Matrix;
+		GW::MATH::GMATRIXF View;
+		GW::MATH::GMATRIXF Projection
+			;
+		Matrix.IdentityF(View);
+		GW::MATH::GVECTORF Eye = { 0.75f, 0.25f, -1.5f, 1.0f };
+		GW::MATH::GVECTORF Target = { 0.15f, 0.75f, 0.0f, 1.0f };
+		GW::MATH::GVECTORF Up = { 0.0f, 1.0f, 0.0f, 0.0f };
+		Matrix.LookAtLHF(Eye, Target, Up, View);
+
+		Matrix.IdentityF(Projection);
+		float AspectRatio = 0.0f;
+		VlkSurface->GetAspectRatio(AspectRatio);
+		float FOV =Math::DegreesToRadians(65.0f);
+		float NearZ = 0.1f;
+		float FarZ = 100.0f;
+		Matrix.ProjectionDirectXLHF(FOV, AspectRatio, NearZ, FarZ, Projection);
+
+		ShaderGlobalData.View = reinterpret_cast<Matrix4D&>(View);
+		ShaderGlobalData.Projection = reinterpret_cast<Matrix4D&>(Projection);
 
 		WorldData->Load();
 
+		uint32 LocalMeshDataSizeInBytes = ShaderLocalData.Materials.size() * sizeof(Material) + sizeof(Matrix4D) * ShaderLocalData.WorldMatrices.size();
+		GlobalDataBuffer = new StorageBuffer(Device, VlkSurface, &ShaderGlobalData, sizeof(ShaderGlobalData), 0);
+		LocalDataBuffer = new StorageBuffer(Device, VlkSurface, &ShaderLocalData, sizeof(LocalMeshDataSizeInBytes), 1);
+
 		/*  ----  */
-		uint32 NumOfActiveFrames = 0;
+		/*uint32 NumOfActiveFrames = 0;
 		VlkSurface->GetSwapchainImageCount(NumOfActiveFrames);
 
-		CreateStorageBuffers(NumOfActiveFrames);
+		uint32 LocalMeshDataSizeInBytes = ShaderLocalData.Materials.size() * sizeof(Material) + sizeof(Matrix4D) * ShaderLocalData.WorldMatrices.size();
+		uint32 GlobalMeshDataSizeInBytes = sizeof(GlobalMeshData);
 
-		CreateDescriptorSetLayout(ShaderLocalStorageDescSetLayout);
-		CreateDescriptorSetLayout(ShaderGlobalStorageDescSetLayout);
+		CreateStorageBuffers(NumOfActiveFrames, LocalMeshDataSizeInBytes, GlobalMeshDataSizeInBytes);
+
+		CreateDescriptorSetLayout(ShaderLocalStorageDescSetLayout, 1);
+		CreateDescriptorSetLayout(ShaderGlobalStorageDescSetLayout, 0);
 
 		CreateDescriptorPool(NumOfActiveFrames, ShaderLocalStoragePool);
 		CreateDescriptorPool(NumOfActiveFrames, ShaderGlobalStoragePool);
@@ -149,8 +226,8 @@ public:
 		AllocateDescriptorSets(NumOfActiveFrames, ShaderLocalStorageDescSetLayout, ShaderLocalStorageDescSets, ShaderLocalStoragePool);
 		AllocateDescriptorSets(NumOfActiveFrames, ShaderGlobalStorageDescSetLayout, ShaderGlobalStorageDescSets,  ShaderGlobalStoragePool);
 
-		LinkDescriptorSetsToBuffer(NumOfActiveFrames, ShaderLocalStorageDescSets, ShaderLocalStorageHandles);
-		LinkDescriptorSetsToBuffer(NumOfActiveFrames, ShaderGlobalStorageDescSets, ShaderGlobalStorageHandles);
+		LinkDescriptorSetsToBuffer(NumOfActiveFrames, ShaderLocalStorageDescSets, ShaderLocalStorageHandles, 1, LocalMeshDataSizeInBytes);
+		LinkDescriptorSetsToBuffer(NumOfActiveFrames, ShaderGlobalStorageDescSets, ShaderGlobalStorageHandles, 0, GlobalMeshDataSizeInBytes);*/
 
 		IsDataLoaded = true;
 	}
@@ -170,43 +247,56 @@ public:
 		IsDataLoaded = false;
 	}
 
+	std::vector<VkDescriptorSetLayout> GetShaderStorageDescSetLayouts()
+	{		
+		std::vector<VkDescriptorSetLayout> Vec;
+		//Vec.push_back(&ShaderLocalStorageDescSetLayout);
+		//Vec.push_back(&ShaderGlobalStorageDescSetLayout);
+		Vec.push_back(*GlobalDataBuffer->GetDescSetLayout());
+		Vec.push_back(*LocalDataBuffer->GetDescSetLayout());
+
+		return Vec;
+	}
+
 private:
-	void CreateStorageBuffers(uint32 NumOfActiveFrames)
+	void CreateStorageBuffers(uint32 numOfActiveFrames, uint32 s1, uint32 s2)
 	{
+		GW::GReturn Result;
 		VkPhysicalDevice PhysicalDevice = nullptr;
-		VlkSurface->GetPhysicalDevice((void**)PhysicalDevice);
-
-		ShaderLocalStorageHandles.resize(NumOfActiveFrames);
-		ShaderLocalStorageDatas.resize(NumOfActiveFrames);
-
-		ShaderGlobalStorageHandles.resize(NumOfActiveFrames);
-		ShaderGlobalStorageDatas.resize(NumOfActiveFrames);
-
-		uint32 LocalMeshDataSizeInBytes = ShaderLocalData.Materials.size() * sizeof(Material) + sizeof(Matrix4D) * ShaderLocalData.WorldMatrices.size();
-		uint32 GlobalMeshDataSizeInBytes = sizeof(GlobalMeshData);
-
-		for (uint32 i = 0; i < NumOfActiveFrames; ++i)
+		if ((Result = VlkSurface->GetPhysicalDevice((void**)&PhysicalDevice)) != GW::GReturn::SUCCESS)
 		{
-			GvkHelper::create_buffer(PhysicalDevice, *Device, LocalMeshDataSizeInBytes,
+			std::cout << "\n[Gateware] Failed to get PhysicalDevice....";
+			return;
+		}
+
+		ShaderLocalStorageHandles.resize(numOfActiveFrames);
+		ShaderLocalStorageDatas.resize(numOfActiveFrames);
+
+		ShaderGlobalStorageHandles.resize(numOfActiveFrames);
+		ShaderGlobalStorageDatas.resize(numOfActiveFrames);
+
+		for (uint32 i = 0; i < numOfActiveFrames; ++i)
+		{
+			VkResult VResult = GvkHelper::create_buffer(PhysicalDevice, *Device, s1,
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
 				VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &ShaderLocalStorageHandles[i], &ShaderLocalStorageDatas[i]);
 
-			GvkHelper::write_to_buffer(*Device, ShaderLocalStorageDatas[i], &ShaderLocalData, LocalMeshDataSizeInBytes);
+			GvkHelper::write_to_buffer(*Device, ShaderLocalStorageDatas[i], &ShaderLocalData, s1);
 
-			GvkHelper::create_buffer(PhysicalDevice, *Device, GlobalMeshDataSizeInBytes,
+			VkResult Result = GvkHelper::create_buffer(PhysicalDevice, *Device, s2,
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
 				VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &ShaderGlobalStorageHandles[i], &ShaderGlobalStorageDatas[i]);
 
-			GvkHelper::write_to_buffer(*Device, ShaderGlobalStorageDatas[i], &ShaderGlobalData, GlobalMeshDataSizeInBytes);
+			Result = GvkHelper::write_to_buffer(*Device, ShaderGlobalStorageDatas[i], &ShaderGlobalData, s2);
 		}
 	}
 
-	void CreateDescriptorSetLayout(VkDescriptorSetLayout& descSetLayout)
+	void CreateDescriptorSetLayout(VkDescriptorSetLayout& descSetLayout, uint32 bindingNum)
 	{
 		VkDescriptorSetLayoutBinding DescSetLayoutBinding = { };
-		DescSetLayoutBinding.binding = 0;
-		DescSetLayoutBinding.descriptorCount = 1;
+		DescSetLayoutBinding.binding = bindingNum;
 		DescSetLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		DescSetLayoutBinding.descriptorCount = 1;
 		DescSetLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 		DescSetLayoutBinding.pImmutableSamplers = nullptr;
 
@@ -219,7 +309,7 @@ private:
 		DescSetLayoutCreateInfo.pBindings = &DescSetLayoutBinding;
 
 		// Create the descriptor
-		vkCreateDescriptorSetLayout(*Device, &DescSetLayoutCreateInfo, nullptr, &descSetLayout);
+		VkResult Result = vkCreateDescriptorSetLayout(*Device, &DescSetLayoutCreateInfo, nullptr, &descSetLayout);
 	}
 
 	void CreateDescriptorPool(uint32 numOfActiveFrames, VkDescriptorPool& descPool)
@@ -236,7 +326,7 @@ private:
 		DescPoolCreateInfo.poolSizeCount = 1;
 		DescPoolCreateInfo.pPoolSizes = &DescPoolSize;
 
-		vkCreateDescriptorPool(*Device, &DescPoolCreateInfo, nullptr, &descPool);
+		VkResult Result = vkCreateDescriptorPool(*Device, &DescPoolCreateInfo, nullptr, &descPool);
 	}
 
 	void AllocateDescriptorSets(uint32 numOfActiveFrames, VkDescriptorSetLayout& descSetLayout, std::vector<VkDescriptorSet>& descSets, VkDescriptorPool& descPool)
@@ -251,18 +341,18 @@ private:
 		descSets.resize(numOfActiveFrames);
 		for (uint32 i = 0; i < numOfActiveFrames; ++i)
 		{
-			vkAllocateDescriptorSets(*Device, nullptr, &descSets[i]);
+			VkResult Result = vkAllocateDescriptorSets(*Device, &DescSetAllocateInfo, &descSets[i]);
 		}
 	}
 
-	void LinkDescriptorSetsToBuffer(uint32 numOfActiveFrames, std::vector<VkDescriptorSet>& shaderStorageDescSets, std::vector<VkBuffer>& shaderStorageHandles)
+	void LinkDescriptorSetsToBuffer(uint32 numOfActiveFrames, std::vector<VkDescriptorSet>& shaderStorageDescSets, std::vector<VkBuffer>& shaderStorageHandles, uint32 bindingNum, uint32 sizeOfBuffer)
 	{
 		VkDescriptorBufferInfo* DescBufferInfo = new VkDescriptorBufferInfo[numOfActiveFrames];
 		for (uint32 i = 0; i < numOfActiveFrames; ++i)
 		{
-			DescBufferInfo[i].buffer = shaderStorageHandles[0];
+			DescBufferInfo[i].buffer = shaderStorageHandles[i];
 			DescBufferInfo[i].offset = 0;
-			DescBufferInfo[i].range = VK_WHOLE_SIZE;
+			DescBufferInfo[i].range = sizeOfBuffer;
 		}
 
 		VkWriteDescriptorSet* DescWriteSets = new VkWriteDescriptorSet[numOfActiveFrames];
@@ -270,20 +360,20 @@ private:
 		{
 			DescWriteSets[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			DescWriteSets[i].pNext = nullptr;
+			DescWriteSets[i].dstBinding = bindingNum;
 			DescWriteSets[i].dstSet = shaderStorageDescSets[i];
-			DescWriteSets[i].dstBinding = 0;
 			DescWriteSets[i].dstArrayElement = 0;
 			DescWriteSets[i].descriptorCount = 1;
 			DescWriteSets[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 			DescWriteSets[i].pImageInfo = nullptr;
-			DescWriteSets[i].pBufferInfo = DescBufferInfo;
+			DescWriteSets[i].pBufferInfo = &DescBufferInfo[i];
 			DescWriteSets[i].pTexelBufferView = nullptr;
 		}
 
 		// Link 
 		vkUpdateDescriptorSets(*Device, numOfActiveFrames, DescWriteSets, 0, nullptr);
 
-		delete DescBufferInfo;
-		delete DescWriteSets;
+		delete[] DescBufferInfo;
+		delete[] DescWriteSets;
 	}
 };

@@ -7,11 +7,11 @@
 namespace H2B {
 
 #pragma pack(push,1)
-	struct VECTOR { 
-		float x, y, z; 
+	struct VECTOR {
+		float x, y, z;
 	};
-	struct VERTEX { 
-		VECTOR pos, uvw, nrm; 
+	struct VERTEX {
+		VECTOR pos, uvw, nrm;
 	};
 	struct alignas(void*) ATTRIBUTES {
 		VECTOR Kd; float d;
@@ -29,7 +29,7 @@ namespace H2B {
 		const char* name;
 		const char* map_Kd;
 		const char* map_Ks;
-		const char* map_Ka; 
+		const char* map_Ka;
 		const char* map_Ke;
 		const char* map_Ns;
 		const char* map_d;
@@ -62,8 +62,8 @@ namespace H2B {
 			Clear();
 			std::ifstream file;
 			char buffer[260] = { 0, };
-			file.open(h2bPath,	std::ios_base::in | 
-								std::ios_base::binary);
+			file.open(h2bPath, std::ios_base::in |
+				std::ios_base::binary);
 			if (file.is_open() == false)
 				return false;
 			file.read(version, 4);

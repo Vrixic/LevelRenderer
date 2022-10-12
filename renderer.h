@@ -3,10 +3,10 @@
 #ifdef _WIN32 // must use MT platform DLL libraries on windows
 #pragma comment(lib, "shaderc_combined.lib") 
 #endif
+
 #include "Math/Matrix4D.h"
-#include "Math/VrixicMathHelper.h"
-#include "h2bParser.h"
-#include "build/FileHelper.h"
+#include "FileHelper.h"
+#include "Level.h"
 
 // Creation, Rendering & Cleanup
 class Renderer
@@ -22,15 +22,15 @@ class Renderer
 	float TimePassed;
 	// TODO: Part 2a
 	GW::MATH::GMatrix Matrix;
-	GW::MATH::GMATRIXF GridWorldMatrices[6];
+	//GW::MATH::GMATRIXF GridWorldMatrices[6];
 	// TODO: Part 3d
 	// TODO: Part 2e
 	// TODO: Part 3a
-	GW::MATH::GMATRIXF ViewProjectionMatrix;
+	//GW::MATH::GMATRIXF ViewProjectionMatrix;
 	// what we need at a minimum to draw a triangle
 	VkDevice device = nullptr;
-	VkBuffer vertexHandle = nullptr;
-	VkDeviceMemory vertexData = nullptr;
+	//VkBuffer vertexHandle = nullptr;
+	//VkDeviceMemory vertexData = nullptr;
 	VkShaderModule vertexShader = nullptr;
 	VkShaderModule pixelShader = nullptr;
 	// pipeline settings for drawing (also required)
@@ -38,18 +38,20 @@ class Renderer
 	VkPipelineLayout pipelineLayout = nullptr;
 public:
 	// TODO: Part 1c -> Vertex struct
-	struct Vertex
-	{
-		float Position[4];
-	};
+	//struct Vertex
+	//{
+	//	float Position[4];
+	//};
 	// TODO: Part 2b -> ShaderVariables struct 
-	struct ShaderVars
-	{
-		GW::MATH::GMATRIXF World;
-		GW::MATH::GMATRIXF View;
-	};
+	//struct ShaderVars
+	//{
+	//	GW::MATH::GMATRIXF World;
+	//	GW::MATH::GMATRIXF View;
+	//};
 	// TODO: Part 2f
-	GW::MATH::GMATRIXF GridViewMatrix;
+	//GW::MATH::GMATRIXF GridViewMatrix;
+
+	Level* World;
 
 	Renderer(GW::SYSTEM::GWindow _win, GW::GRAPHICS::GVulkanSurface _vlk)
 	{
@@ -66,64 +68,54 @@ public:
 		Input.Create(_win);
 		Controller.Create();
 
-		/*LevelData* WorldData;
-		{
-			std::vector<RawMeshData> RawDatas;
-			FileHelper::ReadGameLevelFile("../GameLevel.txt", RawDatas);
-
-			WorldData = new LevelData(&device, &vlk, RawDatas);
-		}
-
-		delete WorldData;*/
-
 		// TODO: Part 2a -> Create world matrix 
 		Matrix.Create(); // Create/enable proxy 
-		for (int i = 0; i < 6; ++i)
-		{
-			GMatrix::IdentityF(GridWorldMatrices[i]);
-		}
+		//for (int i = 0; i < 6; ++i)
+		//{
+		//	GMatrix::IdentityF(GridWorldMatrices[i]);
+		//}
 
-		GVECTORF TranslateVector;
-		TranslateVector.x = 0.0f;
-		TranslateVector.y = -0.5f;
-		TranslateVector.z = 0.0f;
-		TranslateVector.w = 0.0f;
+		//GVECTORF TranslateVector;
+		//TranslateVector.x = 0.0f;
+		//TranslateVector.y = -0.5f;
+		//TranslateVector.z = 0.0f;
+		//TranslateVector.w = 0.0f;
 
-		Matrix.TranslateLocalF(GridWorldMatrices[0], TranslateVector, GridWorldMatrices[0]);
-		Matrix.RotateXLocalF(GridWorldMatrices[0], Math::DegreesToRadians(90.0f), GridWorldMatrices[0]);
+		//Matrix.TranslateLocalF(GridWorldMatrices[0], TranslateVector, GridWorldMatrices[0]);
+		//Matrix.RotateXLocalF(GridWorldMatrices[0], Math::DegreesToRadians(90.0f), GridWorldMatrices[0]);
 
-		// TODO: Part 3d
-		// Ceil
-		TranslateVector.y = 0.5f;
-		Matrix.TranslateLocalF(GridWorldMatrices[1], TranslateVector, GridWorldMatrices[1]);
-		Matrix.RotateXLocalF(GridWorldMatrices[1], Math::DegreesToRadians(90.0f), GridWorldMatrices[1]);
+		//// TODO: Part 3d
+		//// Ceil
+		//TranslateVector.y = 0.5f;
+		//Matrix.TranslateLocalF(GridWorldMatrices[1], TranslateVector, GridWorldMatrices[1]);
+		//Matrix.RotateXLocalF(GridWorldMatrices[1], Math::DegreesToRadians(90.0f), GridWorldMatrices[1]);
 
-		// Walls
-		TranslateVector.y = 0.0f;
+		//// Walls
+		//TranslateVector.y = 0.0f;
 
-		TranslateVector.z = 0.5f;
-		Matrix.TranslateLocalF(GridWorldMatrices[2], TranslateVector, GridWorldMatrices[2]);
+		//TranslateVector.z = 0.5f;
+		//Matrix.TranslateLocalF(GridWorldMatrices[2], TranslateVector, GridWorldMatrices[2]);
 
-		TranslateVector.z = -0.5f;
-		Matrix.TranslateLocalF(GridWorldMatrices[3], TranslateVector, GridWorldMatrices[3]);
+		//TranslateVector.z = -0.5f;
+		//Matrix.TranslateLocalF(GridWorldMatrices[3], TranslateVector, GridWorldMatrices[3]);
 
-		TranslateVector.z = 0.0f;
+		//TranslateVector.z = 0.0f;
 
-		TranslateVector.x = 0.5f;
-		Matrix.TranslateLocalF(GridWorldMatrices[4], TranslateVector, GridWorldMatrices[4]);
-		Matrix.RotateYLocalF(GridWorldMatrices[4], Math::DegreesToRadians(90.0f), GridWorldMatrices[4]);
+		//TranslateVector.x = 0.5f;
+		//Matrix.TranslateLocalF(GridWorldMatrices[4], TranslateVector, GridWorldMatrices[4]);
+		//Matrix.RotateYLocalF(GridWorldMatrices[4], Math::DegreesToRadians(90.0f), GridWorldMatrices[4]);
 
-		TranslateVector.x = -0.5f;
-		Matrix.TranslateLocalF(GridWorldMatrices[5], TranslateVector, GridWorldMatrices[5]);
-		Matrix.RotateYLocalF(GridWorldMatrices[5], Math::DegreesToRadians(90.0f), GridWorldMatrices[5]);
+		//TranslateVector.x = -0.5f;
+		//Matrix.TranslateLocalF(GridWorldMatrices[5], TranslateVector, GridWorldMatrices[5]);
+		//Matrix.RotateYLocalF(GridWorldMatrices[5], Math::DegreesToRadians(90.0f), GridWorldMatrices[5]);
 
-		// TODO: Part 2e -> Create the view matrix
-		Matrix.IdentityF(GridViewMatrix);
-		GVECTORF Eye = { 0.25, -0.125, -0.25, 1.0 };
-		GVECTORF At = { 0.0, -0.5, 0.0, 1.0 };
-		GVECTORF Up = { 0.0, 1.0, 0.0, 1.0 };
+		//// TODO: Part 2e -> Create the view matrix
+		//Matrix.IdentityF(GridViewMatrix);
+		//GVECTORF Eye = { 0.25, -0.125, -0.25, 1.0 };
+		//GVECTORF At = { 0.0, -0.5, 0.0, 1.0 };
+		//GVECTORF Up = { 0.0, 1.0, 0.0, 1.0 };
 
-		Matrix.LookAtLHF(Eye, At, Up, GridViewMatrix);
+		//Matrix.LookAtLHF(Eye, At, Up, GridViewMatrix);
 
 		/***************** GEOMETRY INTIALIZATION ******************/
 		// Grab the device & physical device so we can allocate some stuff
@@ -131,8 +123,10 @@ public:
 		vlk.GetDevice((void**)&device);
 		vlk.GetPhysicalDevice((void**)&physicalDevice);
 
+		World = new Level(&device, &vlk, &pipelineLayout, "Vrixic", "../GameLevel.txt");
+
 		// Create Vertex Buffer
-		Vertex verts[104] = { 0 };
+		/*Vertex verts[104] = { 0 };
 
 		float VertX = 0.5f;
 		float VertY = 0.5f;
@@ -155,13 +149,13 @@ public:
 				verts[i] = { {VertX - VertXSub, VertY, VertZ, VertW} };
 				verts[i + 1] = { {VertX - VertXSub, -VertY, VertZ, VertW} };
 			}
-		}
+		}*/
 
 		// Transfer triangle data to the vertex buffer. (staging would be prefered here)
-		GvkHelper::create_buffer(physicalDevice, device, sizeof(verts),
+		/*GvkHelper::create_buffer(physicalDevice, device, sizeof(verts),
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
 			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle, &vertexData);
-		GvkHelper::write_to_buffer(device, vertexData, verts, sizeof(verts));
+		GvkHelper::write_to_buffer(device, vertexData, verts, sizeof(verts));*/
 
 		/***************** SHADER INTIALIZATION ******************/
 		// Intialize runtime shader compiler HLSL -> SPIRV
@@ -173,8 +167,8 @@ public:
 #ifndef NDEBUG
 		shaderc_compile_options_set_generate_debug_info(options);
 #endif
-		std::string VertexShaderSource = FileHelper::LoadShaderFileIntoString("../Shaders/BasicVertex.hlsl");
-		std::string PixelShaderSource = FileHelper::LoadShaderFileIntoString("../Shaders/BasicPixel.hlsl");
+		std::string VertexShaderSource = FileHelper::LoadShaderFileIntoString("../Shaders/ModelVertex.hlsl");
+		std::string PixelShaderSource = FileHelper::LoadShaderFileIntoString("../Shaders/ModelPixel.hlsl");
 
 		// Create Vertex Shader
 		shaderc_compilation_result_t result = shaderc_compile_into_spv( // compile
@@ -187,7 +181,7 @@ public:
 		shaderc_result_release(result); // done
 		// Create Pixel Shader
 		result = shaderc_compile_into_spv( // compile
-			compiler, PixelShaderSource.c_str(), PixelShaderSource.length() ,
+			compiler, PixelShaderSource.c_str(), PixelShaderSource.length(),
 			shaderc_fragment_shader, "main.frag", "main", options);
 		if (shaderc_result_get_compilation_status(result) != shaderc_compilation_status_success) // errors?
 			std::cout << "Pixel Shader Errors: " << shaderc_result_get_error_message(result) << std::endl;
@@ -225,14 +219,17 @@ public:
 		vertex_binding_description.stride = sizeof(Vertex);
 		vertex_binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 		// TODO: Part 1c
-		VkVertexInputAttributeDescription vertex_attribute_description[1] = {
-			{ 0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0 }, //uv, normal, etc....
+		VkVertexInputAttributeDescription vertex_attribute_description[4] = {
+			{ 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 },
+			{ 1, 0, VK_FORMAT_R32G32B32_SFLOAT, 8 },
+			{ 2, 0, VK_FORMAT_R32G32B32_SFLOAT, 20 },
+			{ 3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 32 }
 		};
 		VkPipelineVertexInputStateCreateInfo input_vertex_info = {};
 		input_vertex_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 		input_vertex_info.vertexBindingDescriptionCount = 1;
 		input_vertex_info.pVertexBindingDescriptions = &vertex_binding_description;
-		input_vertex_info.vertexAttributeDescriptionCount = 1;
+		input_vertex_info.vertexAttributeDescriptionCount = 4;
 		input_vertex_info.pVertexAttributeDescriptions = vertex_attribute_description;
 		// Viewport State (we still need to set this up even though we will overwrite the values)
 		VkViewport viewport = {
@@ -307,18 +304,28 @@ public:
 		dynamic_create_info.dynamicStateCount = 2;
 		dynamic_create_info.pDynamicStates = dynamic_state;
 		// TODO: Part 2c
-		VkPushConstantRange PushConstantRange = { };
-		PushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-		PushConstantRange.offset = 0;
-		PushConstantRange.size = sizeof(ShaderVars);
+		//VkPushConstantRange PushConstantRange = { };
+		//PushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		//PushConstantRange.offset = 0;
+		//PushConstantRange.size = sizeof(ShaderVars);
+
+		/* Load World Before pipeline creation */
+		World->Load();
+
+		std::vector<VkDescriptorSetLayout> DescSetLayouts = World->GetShaderStorageDescSetLayouts();
 
 		// Descriptor pipeline layout
-		VkPipelineLayoutCreateInfo pipeline_layout_create_info = {};
+		VkPipelineLayoutCreateInfo pipeline_layout_create_info = { };
 		pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipeline_layout_create_info.setLayoutCount = 0;
-		pipeline_layout_create_info.pSetLayouts = VK_NULL_HANDLE;
-		pipeline_layout_create_info.pushConstantRangeCount = 1; // TODO: Part 2d 
-		pipeline_layout_create_info.pPushConstantRanges = &PushConstantRange; // TODO: Part 2d
+		pipeline_layout_create_info.pNext = nullptr;
+		pipeline_layout_create_info.setLayoutCount = DescSetLayouts.size();
+		pipeline_layout_create_info.pSetLayouts = DescSetLayouts.data();
+
+		pipeline_layout_create_info.flags = 0;
+
+		pipeline_layout_create_info.pushConstantRangeCount = 0; // TODO: Part 2d 
+		pipeline_layout_create_info.pPushConstantRanges = nullptr; // TODO: Part 2d
+
 		vkCreatePipelineLayout(device, &pipeline_layout_create_info,
 			nullptr, &pipelineLayout);
 		// Pipeline State... (FINALLY) 
@@ -340,6 +347,8 @@ public:
 		pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE;
 		vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1,
 			&pipeline_create_info, nullptr, &pipeline);
+
+		
 
 		/***************** CLEANUP / SHUTDOWN ******************/
 		// GVulkanSurface will inform us when to release any allocated resources
@@ -377,27 +386,31 @@ public:
 		float AspectRatio = 0.0f;
 		vlk.GetAspectRatio(AspectRatio);
 		GW::MATH::GMatrix::ProjectionDirectXLHF(FOV, AspectRatio, NearPlane, FarPlane, ProjectionMatrix);
+
+		World->Bind();
+		vkCmdDrawIndexed(commandBuffer, 11754, 1, 0, 0, 0 );
+
 		// TODO: Part 3b -> View projection matrix 
-		GW::MATH::GMatrix::MultiplyMatrixF(GridViewMatrix, ProjectionMatrix, ViewProjectionMatrix);
+		//GW::MATH::GMatrix::MultiplyMatrixF(GridViewMatrix, ProjectionMatrix, ViewProjectionMatrix);
 		// TODO: Part 2b -> Shader constant buffer instance
-		ShaderVars ConstantBuffer;
-		ConstantBuffer.World = GridWorldMatrices[0];
+		//ShaderVars ConstantBuffer;
+		//ConstantBuffer.World = GridWorldMatrices[0];
 		// TODO: Part 2f, Part 3b
-		ConstantBuffer.View = ViewProjectionMatrix;
+		//ConstantBuffer.View = ViewProjectionMatrix;
 		// TODO: Part 2d -> Pushing/Sending shader constant buffer from cpu to gpu
-		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShaderVars), &ConstantBuffer);
+		//vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShaderVars), &ConstantBuffer);
 		// now we can draw
-		VkDeviceSize offsets[] = { 0 };
-		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexHandle, offsets);
-		vkCmdDraw(commandBuffer, 104, 1, 0, 0); // TODO: Part 1b // TODO: Part 1c
+		//VkDeviceSize offsets[] = { 0 };
+		//vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexHandle, offsets);
+		//vkCmdDraw(commandBuffer, 104, 1, 0, 0); // TODO: Part 1b // TODO: Part 1c
 		// TODO: Part 3e
-		for (int i = 1; i < 6; ++i)
+		/*for (int i = 1; i < 6; ++i)
 		{
 			ConstantBuffer.World = GridWorldMatrices[i];
 			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShaderVars), &ConstantBuffer);
 			vkCmdDraw(commandBuffer, 104, 1, 0, 0);
 
-		}
+		}*/
 	}
 	// TODO: Part 4b
 	void UpdateCamera()
@@ -406,84 +419,84 @@ public:
 		std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
 		// Define All Of the Key/Controller State Variables 
-		float RightTriggerState = 0, LeftTriggerState = 0, LeftStickYAxis = 0, LeftStickXAxis = 0, RightStickYAxis = 0, RightStickXAxis = 0;
-		float WKeyState, SKeyState = 0, AKeyState = 0, DKeyState = 0, SpaceKeyState = 0, LeftShiftKeyState = 0;
-		float MouseDeltaX = 0, MouseDeltaY = 0;
-		unsigned int ScreenHeight = 0, ScreenWidth = 0;
-		float CameraRotationSpeed = 10.0f;
+		//float RightTriggerState = 0, LeftTriggerState = 0, LeftStickYAxis = 0, LeftStickXAxis = 0, RightStickYAxis = 0, RightStickXAxis = 0;
+		//float WKeyState, SKeyState = 0, AKeyState = 0, DKeyState = 0, SpaceKeyState = 0, LeftShiftKeyState = 0;
+		//float MouseDeltaX = 0, MouseDeltaY = 0;
+		//unsigned int ScreenHeight = 0, ScreenWidth = 0;
+		//float CameraRotationSpeed = 10.0f;
 
-		// Get Screen Width/Height
-		win.GetWidth(ScreenWidth);
-		win.GetHeight(ScreenHeight);
+		//// Get Screen Width/Height
+		//win.GetWidth(ScreenWidth);
+		//win.GetHeight(ScreenHeight);
 
-		// Get The Key/Controller States
-		Input.GetState(G_KEY_SPACE, SpaceKeyState);
-		Input.GetState(G_KEY_LEFTSHIFT, LeftShiftKeyState);
+		//// Get The Key/Controller States
+		//Input.GetState(G_KEY_SPACE, SpaceKeyState);
+		//Input.GetState(G_KEY_LEFTSHIFT, LeftShiftKeyState);
 
-		Input.GetState(G_KEY_W, WKeyState);
-		Input.GetState(G_KEY_A, AKeyState);
-		Input.GetState(G_KEY_S, SKeyState);
-		Input.GetState(G_KEY_D, DKeyState);
+		//Input.GetState(G_KEY_W, WKeyState);
+		//Input.GetState(G_KEY_A, AKeyState);
+		//Input.GetState(G_KEY_S, SKeyState);
+		//Input.GetState(G_KEY_D, DKeyState);
 
-		if (Input.GetMouseDelta(MouseDeltaX, MouseDeltaY) != GW::GReturn::SUCCESS)
-		{
-			MouseDeltaX = 0;
-			MouseDeltaY = 0;
-		};
+		//if (Input.GetMouseDelta(MouseDeltaX, MouseDeltaY) != GW::GReturn::SUCCESS)
+		//{
+		//	MouseDeltaX = 0;
+		//	MouseDeltaY = 0;
+		//};
 
-		Controller.GetState(0, G_RIGHT_TRIGGER_AXIS, RightTriggerState);
-		Controller.GetState(0, G_LEFT_TRIGGER_AXIS, LeftTriggerState);
-		Controller.GetState(0, G_LY_AXIS, LeftStickYAxis);
-		Controller.GetState(0, G_LX_AXIS, LeftStickXAxis);
-		Controller.GetState(0, G_RY_AXIS, RightStickYAxis);
-		Controller.GetState(0, G_RX_AXIS, RightStickXAxis);
+		//Controller.GetState(0, G_RIGHT_TRIGGER_AXIS, RightTriggerState);
+		//Controller.GetState(0, G_LEFT_TRIGGER_AXIS, LeftTriggerState);
+		//Controller.GetState(0, G_LY_AXIS, LeftStickYAxis);
+		//Controller.GetState(0, G_LX_AXIS, LeftStickXAxis);
+		//Controller.GetState(0, G_RY_AXIS, RightStickYAxis);
+		//Controller.GetState(0, G_RX_AXIS, RightStickXAxis);
 
-		// Calculate The Deltas 		
-		float DeltaX = DKeyState - AKeyState + LeftStickXAxis;
-		float DeltaY = (SpaceKeyState - LeftShiftKeyState) + (RightTriggerState - LeftTriggerState);
-		float DeltaZ = WKeyState - SKeyState + LeftStickYAxis;
-		float ThumbSpeed = PI * TimePassed;
+		//// Calculate The Deltas 		
+		//float DeltaX = DKeyState - AKeyState + LeftStickXAxis;
+		//float DeltaY = (SpaceKeyState - LeftShiftKeyState) + (RightTriggerState - LeftTriggerState);
+		//float DeltaZ = WKeyState - SKeyState + LeftStickYAxis;
+		//float ThumbSpeed = PI * TimePassed;
 
-		float TotalPitch = (Math::DegreesToRadians(65.0f) * MouseDeltaY / ScreenHeight + RightStickYAxis * -ThumbSpeed) * CameraRotationSpeed;
-		float TotalYaw = (Math::DegreesToRadians(65.0f) * MouseDeltaX / ScreenWidth + RightStickXAxis * ThumbSpeed) * CameraRotationSpeed;
+		//float TotalPitch = (Math::DegreesToRadians(65.0f) * MouseDeltaY / ScreenHeight + RightStickYAxis * -ThumbSpeed) * CameraRotationSpeed;
+		//float TotalYaw = (Math::DegreesToRadians(65.0f) * MouseDeltaX / ScreenWidth + RightStickXAxis * ThumbSpeed) * CameraRotationSpeed;
 
-		// Camera Variables
-		const float CameraSpeed = 0.3f;
-		float PerFrameSpeed = TimePassed * CameraSpeed;
+		//// Camera Variables
+		//const float CameraSpeed = 0.3f;
+		//float PerFrameSpeed = TimePassed * CameraSpeed;
 
-		// TODO: Part 4c
-		Matrix.InverseF(GridViewMatrix, GridViewMatrix);
+		//// TODO: Part 4c
+		//Matrix.InverseF(GridViewMatrix, GridViewMatrix);
 
-		// TODO: Part 4d -> Camera Movement Y
-		GMATRIXF CameraTranslationMatrix;
-		Matrix.IdentityF(CameraTranslationMatrix);
+		//// TODO: Part 4d -> Camera Movement Y
+		//GMATRIXF CameraTranslationMatrix;
+		//Matrix.IdentityF(CameraTranslationMatrix);
 
-		GW::MATH::GVECTORF CameraTranslateVector = { 0.0f, 0.0f, 0.0f, 1.0f };
-		CameraTranslateVector.y += DeltaY * PerFrameSpeed;
-		Matrix.TranslateGlobalF(CameraTranslationMatrix, CameraTranslateVector, CameraTranslationMatrix);
-		Matrix.MultiplyMatrixF(GridViewMatrix, CameraTranslationMatrix, GridViewMatrix);
-		Matrix.IdentityF(CameraTranslationMatrix);
-		CameraTranslateVector.y = 0;
-		// TODO: Part 4e -> Camera Movement XZ
-		CameraTranslateVector.x = DeltaX * PerFrameSpeed;
-		CameraTranslateVector.z = DeltaZ * PerFrameSpeed;
-		Matrix.TranslateLocalF(CameraTranslationMatrix, CameraTranslateVector, CameraTranslationMatrix);
-		Matrix.MultiplyMatrixF(CameraTranslationMatrix, GridViewMatrix, GridViewMatrix);
-		// TODO: Part 4f -> Pitch Rotation 
-		GMATRIXF PitchMatrix;
-		Matrix.IdentityF(PitchMatrix);
-		Matrix.RotateXLocalF(PitchMatrix, Math::DegreesToRadians(TotalPitch), PitchMatrix);
-		Matrix.MultiplyMatrixF(PitchMatrix, GridViewMatrix, GridViewMatrix);
-		// TODO: Part 4g -> Yaw Rotation
-		GMATRIXF YawMatrix;
-		Matrix.IdentityF(YawMatrix);
-		Matrix.RotateYGlobalF(YawMatrix, Math::DegreesToRadians(TotalYaw), YawMatrix);
-		GVECTORF CameraPosition = GridViewMatrix.row4;
-		Matrix.MultiplyMatrixF(GridViewMatrix, YawMatrix, GridViewMatrix);
-		GridViewMatrix.row4 = CameraPosition;
+		//GW::MATH::GVECTORF CameraTranslateVector = { 0.0f, 0.0f, 0.0f, 1.0f };
+		//CameraTranslateVector.y += DeltaY * PerFrameSpeed;
+		//Matrix.TranslateGlobalF(CameraTranslationMatrix, CameraTranslateVector, CameraTranslationMatrix);
+		//Matrix.MultiplyMatrixF(GridViewMatrix, CameraTranslationMatrix, GridViewMatrix);
+		//Matrix.IdentityF(CameraTranslationMatrix);
+		//CameraTranslateVector.y = 0;
+		//// TODO: Part 4e -> Camera Movement XZ
+		//CameraTranslateVector.x = DeltaX * PerFrameSpeed;
+		//CameraTranslateVector.z = DeltaZ * PerFrameSpeed;
+		//Matrix.TranslateLocalF(CameraTranslationMatrix, CameraTranslateVector, CameraTranslationMatrix);
+		//Matrix.MultiplyMatrixF(CameraTranslationMatrix, GridViewMatrix, GridViewMatrix);
+		//// TODO: Part 4f -> Pitch Rotation 
+		//GMATRIXF PitchMatrix;
+		//Matrix.IdentityF(PitchMatrix);
+		//Matrix.RotateXLocalF(PitchMatrix, Math::DegreesToRadians(TotalPitch), PitchMatrix);
+		//Matrix.MultiplyMatrixF(PitchMatrix, GridViewMatrix, GridViewMatrix);
+		//// TODO: Part 4g -> Yaw Rotation
+		//GMATRIXF YawMatrix;
+		//Matrix.IdentityF(YawMatrix);
+		//Matrix.RotateYGlobalF(YawMatrix, Math::DegreesToRadians(TotalYaw), YawMatrix);
+		//GVECTORF CameraPosition = GridViewMatrix.row4;
+		//Matrix.MultiplyMatrixF(GridViewMatrix, YawMatrix, GridViewMatrix);
+		//GridViewMatrix.row4 = CameraPosition;
 
-		// TODO: Part 4c
-		Matrix.InverseF(GridViewMatrix, GridViewMatrix);
+		//// TODO: Part 4c
+		//Matrix.InverseF(GridViewMatrix, GridViewMatrix);
 
 		std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 		using ms = std::chrono::duration<float, std::milli>;
@@ -496,11 +509,16 @@ private:
 		// wait till everything has completed
 		vkDeviceWaitIdle(device);
 		// Release allocated buffers, shaders & pipeline
-		vkDestroyBuffer(device, vertexHandle, nullptr);
-		vkFreeMemory(device, vertexData, nullptr);
+		//vkDestroyBuffer(device, vertexHandle, nullptr);
+		//vkFreeMemory(device, vertexData, nullptr);
 		vkDestroyShaderModule(device, vertexShader, nullptr);
 		vkDestroyShaderModule(device, pixelShader, nullptr);
 		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 		vkDestroyPipeline(device, pipeline, nullptr);
+
+		if (World)
+		{
+			delete World;
+		}
 	}
 };

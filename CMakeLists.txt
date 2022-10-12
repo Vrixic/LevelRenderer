@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(Assignment_1_Vulkan)
+project(Assignment_2_Vulkan)
 
 # currently using unicode in some libraries on win32 but will change soon
 ADD_DEFINITIONS(-DUNICODE)
@@ -9,9 +9,9 @@ ADD_DEFINITIONS(-D_UNICODE)
 if (WIN32)
 	# shaderc_combined.lib in Vulkan requires this for debug & release (runtime shader compiling)
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MD")
-	add_executable (Assignment_1_Vulkan main.cpp renderer.h)
-	target_include_directories(Assignment_1_Vulkan PUBLIC $ENV{VULKAN_SDK}/Include/)
-	target_link_directories(Assignment_1_Vulkan PUBLIC $ENV{VULKAN_SDK}/Lib/)
+	add_executable (Assignment_2_Vulkan main.cpp renderer.h)
+	target_include_directories(Assignment_2_Vulkan PUBLIC $ENV{VULKAN_SDK}/Include/)
+	target_link_directories(Assignment_2_Vulkan PUBLIC $ENV{VULKAN_SDK}/Lib/)
 endif(WIN32)
 
 if(UNIX AND NOT APPLE)
@@ -27,7 +27,7 @@ if(UNIX AND NOT APPLE)
 	# the path is (properly)hardcoded because "${Vulkan_LIBRARY}" currently does not 
 	# return a proper path on MacOS (it has the .dynlib appended)
     link_libraries(/usr/lib/x86_64-linux-gnu/libshaderc_combined.a)
-    add_executable (Assignment_1_Vulkan main.cpp renderer.h)
+    add_executable (Assignment_2_Vulkan main.cpp renderer.h)
 endif(UNIX AND NOT APPLE)
 
 if(APPLE)
@@ -41,5 +41,5 @@ if(APPLE)
 	# the path is (properly)hardcoded because "${Vulkan_LIBRARY}" currently does not 
 	# return a proper path on MacOS (it has the .dynlib appended)
 	link_libraries(/usr/local/lib/libshaderc_combined.a)
-	add_executable (Assignment_1_Vulkan main.mm)
+	add_executable (Assignment_2_Vulkan main.mm)
 endif(APPLE)

@@ -173,9 +173,9 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </ProjectReference>
-    <ProjectReference Include="D:\Vrij\Education\Fullsail_Classes\Project And Portfolio 4\LevelRenderer\LevelRenderer\build\Assignment_1_Vulkan.vcxproj">
-      <Project>{28EE8097-24E4-32F4-B54B-6F5E78FFFE9A}</Project>
-      <Name>Assignment_1_Vulkan</Name>
+    <ProjectReference Include="D:\Vrij\Education\Fullsail_Classes\Project And Portfolio 4\LevelRenderer\LevelRenderer\build\Assignment_2_Vulkan.vcxproj">
+      <Project>{5ACA2462-185B-39DD-875A-08719B4F3FDA}</Project>
+      <Name>Assignment_2_Vulkan</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
