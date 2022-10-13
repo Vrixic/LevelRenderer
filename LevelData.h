@@ -60,8 +60,10 @@ public:
 		Device = deviceHandle;
 		VlkSurface = vlkSurface;
 
-		TotalIndices = 0;// FSLogo_indexcount;
-		TotalVertices = 0;// FSLogo_vertexcount;
+		TotalIndices = 0;
+		TotalVertices = 0;
+
+		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
 
 		/*TotalIndices  += FSLogo_indexcount;
 		TotalVertices += FSLogo_vertexcount;
@@ -78,6 +80,8 @@ public:
 		{
 			Indices.push_back(FSLogo_indices[i]);
 		}*/
+
+		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
 
 		for (uint32 i = 0; i < rawMeshDatas.size(); ++i)
 		{
@@ -122,7 +126,6 @@ public:
 
 	void Load()
 	{
-		//LoadShaders();
 		LoadVertexAndIndexData();
 	}
 
@@ -136,7 +139,6 @@ public:
 	{
 		/* Copy All Vertices */
 		TotalVertices += rawMeshData.VertexCount;
-		//Vertices.resize(Vertices.size() + rawMeshData.VertexCount);
 		Vertex V;
 		V.Color = Vector4D(0.5f, 0.5f, 0.5f, 1.0f);
 		for (uint32 i = 0; i < rawMeshData.VertexCount; ++i)
@@ -149,14 +151,12 @@ public:
 
 		/* Copy All Indices */
 		TotalIndices += rawMeshData.IndexCount;
-		//Indices.resize(Indices.size() + rawMeshData.IndexCount);
 		for (uint32 i = 0; i < rawMeshData.IndexCount; ++i)
 		{
 			Indices.push_back(rawMeshData.Indices[i]);
 		}
 
 		/* Copy All WorldMatrices */
-		//WorldMatrices.resize(WorldMatrices.size() + rawMeshData.WorldMatrices.size());
 		for (uint32 i = 0; i < rawMeshData.WorldMatrices.size(); ++i)
 		{
 			WorldMatrices.push_back(rawMeshData.WorldMatrices[i]);

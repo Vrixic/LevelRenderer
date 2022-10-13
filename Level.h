@@ -5,6 +5,19 @@
 #include "LevelData.h"
 #include "StorageBuffer.h"
 
+#define DEBUG 1
+
+#if DEBUG
+#define VK_ASSERT(r)											\
+	if (r != VK_SUCCESS)										\
+	{															\
+		std::cout << "[VK_ASSERT] Failed in file: " << __FILE__;			\
+		std::cout << " at line: " << __LINE__ << std::endl;		\
+	}															
+#endif // DEBUG
+
+#define MAX_SUBMESH_PER_DRAW 512
+
 struct SceneData
 {
 	/* Globally shared model information */
@@ -17,29 +30,9 @@ struct SceneData
 	Vector4D SunAmbient;
 	Vector4D CameraWorldPosition;
 
-	std::vector<Matrix4D> WorldMatrices;
-	std::vector<Material> Materials;
+	Matrix4D WorldMatrices[MAX_SUBMESH_PER_DRAW];
+	Material Materials[MAX_SUBMESH_PER_DRAW];
 };
-
-/*--------------------------------------------------DEBUG-------------------------------------------------------*/
-
-struct SceneDataDebug
-{
-	/* Globally shared model information */
-	Matrix4D View;
-	Matrix4D Projection;
-
-	/* Lighting Information */
-	Vector4D DirectionalLightDirection;
-	Vector4D DirectionalLightColor;
-	Vector4D SunAmbient;
-	Vector4D CameraWorldPosition;
-
-	Matrix4D WorldMatrices;
-	Material Materials;
-};
-
-/*--------------------------------------------------DEBUG-------------------------------------------------------*/
 
 class Level
 {
@@ -61,17 +54,22 @@ private:
 	/* Used to reserve descriptor sets */
 	VkDescriptorPool ShaderStoragePool;
 
-	VkDescriptorSet ShaderStorageDescSet;
-
-	SceneData ShaderSceneData;
+	std::vector<VkDescriptorSet> ShaderStorageDescSets;
 
 	/* Rendering Data */
 private:
+	/* Level Data */
 	std::string Name;
 	std::string Path;
+
 	LevelData* WorldData;
 
 	bool IsDataLoaded;
+
+	/* Scene Data */
+	SceneData* ShaderSceneData;
+
+	uint64 SceneDataSizeInBytes;
 
 public:
 	Level(VkDevice* deviceHandle, GW::GRAPHICS::GVulkanSurface* vlkSurface, VkPipelineLayout* pipelineLayout, const char* name, const char* path)
@@ -88,6 +86,10 @@ public:
 		WorldData = nullptr;
 
 		IsDataLoaded = false;
+
+		SceneDataSizeInBytes = 0;
+
+		ShaderSceneData = new SceneData;
 	}
 
 	Level(const Level& Other) = delete;
@@ -98,7 +100,6 @@ public:
 		{
 			vkDestroyBuffer(*Device, ShaderStorageHandles[i], nullptr);
 			vkFreeMemory(*Device, ShaderStorageDatas[i], nullptr);
-
 		}
 
 		vkDestroyDescriptorSetLayout(*Device, ShaderStorageDescSetLayout, nullptr);
@@ -108,6 +109,8 @@ public:
 		{
 			delete WorldData;
 		}
+
+		delete ShaderSceneData;
 	}
 
 public:
@@ -124,16 +127,8 @@ public:
 			VkCommandBuffer CommandBuffer;
 			VlkSurface->GetCommandBuffer(CurrentBuffer, (void**)&CommandBuffer);
 
-			//vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *PipelineLayout, 0, 1, &ShaderStorageDescSet, 0, nullptr);
-
-			/*--------------------------------------------------DEBUG-------------------------------------------------------*/
-			SceneDataDebug Data;
-			Data.View = ShaderSceneData.View;
-			Data.Projection = ShaderSceneData.Projection;
-			Data.WorldMatrices.SetIdentity();
-			GvkHelper::write_to_buffer(*Device, ShaderStorageDatas[0], &Data, sizeof(SceneDataDebug));
-			vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *PipelineLayout, 0, 1, &ShaderStorageDescSet, 0, nullptr);
-			/*--------------------------------------------------DEBUG-------------------------------------------------------*/
+			GvkHelper::write_to_buffer(*Device, ShaderStorageDatas[CurrentBuffer], ShaderSceneData, SceneDataSizeInBytes);
+			vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *PipelineLayout, 0, 1, &ShaderStorageDescSets[CurrentBuffer], 0, nullptr);
 		}
 	}
 
@@ -156,7 +151,7 @@ public:
 		{
 			for (uint32 j = 0; j < RawData.size(); ++j)
 			{
-				ShaderSceneData.WorldMatrices.push_back(RawData[i].WorldMatrices[j]);
+				ShaderSceneData->WorldMatrices[j] = RawData[i].WorldMatrices[j];
 			}
 
 			for (uint32 j = 0; j < RawData[i].MaterialCount; ++j)
@@ -173,7 +168,7 @@ public:
 				Mat.Emissive = reinterpret_cast<Vector3D&>(RawData[i].Materials[j].attrib.Ke);
 				Mat.IlluminationModel = RawData[i].Materials[j].attrib.illum;
 
-				ShaderSceneData.Materials.push_back(Mat);
+				ShaderSceneData->Materials[j] = Mat;
 			}
 		}
 
@@ -183,7 +178,7 @@ public:
 		GW::MATH::GMATRIXF Projection
 			;
 		Matrix.IdentityF(View);
-		GW::MATH::GVECTORF Eye = { -156.0f, 130.0f, 142.0f, 1.0f };
+		GW::MATH::GVECTORF Eye = { -472.0f, 250.0f, 457.0f, 1.0f };
 		GW::MATH::GVECTORF Target = { 0.0f, 0.0f, 0.0f, 1.0f };
 		GW::MATH::GVECTORF Up = { 0.0f, 1.0f, 0.0f, 0.0f };
 		Matrix.LookAtLHF(Eye, Target, Up, View);
@@ -196,8 +191,8 @@ public:
 		float FarZ = 1000.0f;
 		Matrix.ProjectionDirectXLHF(FOV, AspectRatio, NearZ, FarZ, Projection);
 
-		ShaderSceneData.View = reinterpret_cast<Matrix4D&>(View);
-		ShaderSceneData.Projection = reinterpret_cast<Matrix4D&>(Projection);
+		ShaderSceneData->View = reinterpret_cast<Matrix4D&>(View);
+		ShaderSceneData->Projection = reinterpret_cast<Matrix4D&>(Projection);
 
 		WorldData->Load();
 
@@ -205,53 +200,21 @@ public:
 		uint32 NumOfActiveFrames = 0;
 		VlkSurface->GetSwapchainImageCount(NumOfActiveFrames);
 
-		uint32 SceneDataSizeInBytes = ShaderSceneData.Materials.size()
-			* sizeof(Material) + sizeof(Matrix4D) * ShaderSceneData.WorldMatrices.size()
-			+ sizeof(Vector4D) * 4 + sizeof(Matrix4D) * 2;
+		SceneDataSizeInBytes = sizeof(SceneData);
 
-		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
-		NumOfActiveFrames = 1;
-
-		/* Create the storage buffers */	
-		GW::GReturn GResult;
-		VkPhysicalDevice PhysicalDevice = nullptr;
-		if ((GResult = VlkSurface->GetPhysicalDevice((void**)&PhysicalDevice)) != GW::GReturn::SUCCESS)
-		{
-			std::cout << "\n[Gateware] Failed to get PhysicalDevice....";
-			return;
-		}
-
+		/* Resize storage vectors */
+		ShaderStorageDescSets.resize(NumOfActiveFrames);
 		ShaderStorageHandles.resize(NumOfActiveFrames);
 		ShaderStorageDatas.resize(NumOfActiveFrames);
 
-		for (uint32 i = 0; i < NumOfActiveFrames; ++i)
-		{
-			VkResult VResult = GvkHelper::create_buffer(PhysicalDevice, *Device, SceneDataSizeInBytes,
-				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-				VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &ShaderStorageHandles[i], &ShaderStorageDatas[i]);
+		/* Create the storage buffers */
+		CreateStorageBuffers(NumOfActiveFrames, ShaderStorageHandles, ShaderStorageDatas, ShaderSceneData, SceneDataSizeInBytes);
 
-			GvkHelper::write_to_buffer(*Device, ShaderStorageDatas[i], &ShaderSceneData, SceneDataSizeInBytes);
-		}
+		/* Create only 1 descriptor set layout for our storage buffers */
+		CreateDescriptorSetLayouts(1, &ShaderStorageDescSetLayout);
 
-		VkDescriptorSetLayoutBinding DescSetLayoutBinding[2];
-		DescSetLayoutBinding[0].binding = 0;
-		DescSetLayoutBinding[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		DescSetLayoutBinding[0].descriptorCount = 1;
-		DescSetLayoutBinding[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-		DescSetLayoutBinding[0].pImmutableSamplers = nullptr;
-
-		// Tells vulkan how many binding we have and where they are 
-		VkDescriptorSetLayoutCreateInfo DescSetLayoutCreateInfo = { };
-		DescSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		DescSetLayoutCreateInfo.pNext = nullptr;
-		DescSetLayoutCreateInfo.flags = 0;
-		DescSetLayoutCreateInfo.bindingCount = 1;
-		DescSetLayoutCreateInfo.pBindings = DescSetLayoutBinding;
-
-		// Create the descriptor
-		VkResult Result = vkCreateDescriptorSetLayout(*Device, &DescSetLayoutCreateInfo, nullptr, &ShaderStorageDescSetLayout);
-
-		VkDescriptorPoolSize DescPoolSize[2];
+		/* Create only one pool for our descriptor sets */
+		VkDescriptorPoolSize DescPoolSize[1];
 		DescPoolSize[0].descriptorCount = 1;
 		DescPoolSize[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 
@@ -259,42 +222,18 @@ public:
 		DescPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		DescPoolCreateInfo.pNext = nullptr;
 		DescPoolCreateInfo.flags = 0;
-		DescPoolCreateInfo.maxSets = 1;
+		DescPoolCreateInfo.maxSets = NumOfActiveFrames;
 		DescPoolCreateInfo.poolSizeCount = 1;
 		DescPoolCreateInfo.pPoolSizes = DescPoolSize;
 
-		Result = vkCreateDescriptorPool(*Device, &DescPoolCreateInfo, nullptr, &ShaderStoragePool);
+		VK_ASSERT(vkCreateDescriptorPool(*Device, &DescPoolCreateInfo, nullptr, &ShaderStoragePool));
 
-		VkDescriptorSetAllocateInfo DescSetAllocateInfo = { };
-		DescSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		DescSetAllocateInfo.pNext = nullptr;
-		DescSetAllocateInfo.descriptorPool = ShaderStoragePool;
-		DescSetAllocateInfo.descriptorSetCount = 1;
-		DescSetAllocateInfo.pSetLayouts = &ShaderStorageDescSetLayout;
+		for (uint32 i = 0; i < NumOfActiveFrames; ++i)
+		{
+			AllocateDescriptorSet(1, &ShaderStorageDescSetLayout, &ShaderStorageDescSets[i], &ShaderStoragePool);
+			LinkDescriptorSetToBuffer(0, SceneDataSizeInBytes, &ShaderStorageDescSets[i], &ShaderStorageHandles[i]);
+		}
 
-		Result = vkAllocateDescriptorSets(*Device, &DescSetAllocateInfo, &ShaderStorageDescSet);
-
-		VkDescriptorBufferInfo DescBufferInfo[2] = { };
-		DescBufferInfo[0].buffer = ShaderStorageHandles[0];
-		DescBufferInfo[0].offset = 0;
-		DescBufferInfo[0].range = VK_WHOLE_SIZE;
-
-		VkWriteDescriptorSet DescWriteSets[2] = { };
-		DescWriteSets[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		DescWriteSets[0].pNext = nullptr;
-		DescWriteSets[0].dstBinding = 0;
-		DescWriteSets[0].dstSet = ShaderStorageDescSet;
-		DescWriteSets[0].dstArrayElement = 0;
-		DescWriteSets[0].descriptorCount = 1;
-		DescWriteSets[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		DescWriteSets[0].pImageInfo = nullptr;
-		DescWriteSets[0].pBufferInfo = &DescBufferInfo[0];
-		DescWriteSets[0].pTexelBufferView = nullptr;
-
-		// Link 
-		vkUpdateDescriptorSets(*Device, 1, DescWriteSets, 0, nullptr);
-
-		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
 		IsDataLoaded = true;
 	}
 
@@ -313,6 +252,7 @@ public:
 		IsDataLoaded = false;
 	}
 
+	/* Returns the desc set layouts for the main pipeline */
 	std::vector<VkDescriptorSetLayout*> GetShaderStorageDescSetLayouts()
 	{
 		std::vector<VkDescriptorSetLayout*> Vec;
@@ -321,20 +261,24 @@ public:
 		return Vec;
 	}
 
+	/*--------------------------------------------------DEBUG-------------------------------------------------------*/
+
 	GW::MATH::GMATRIXF GetViewMatrix()
 	{
-		GW::MATH::GMATRIXF Mat = reinterpret_cast<GW::MATH::GMATRIXF&>(ShaderSceneData.View);
+		GW::MATH::GMATRIXF Mat = reinterpret_cast<GW::MATH::GMATRIXF&>(ShaderSceneData->View);
 		return Mat;
 	}
 
 	void SetViewMatrix(GW::MATH::GMATRIXF& mat)
 	{
-		ShaderSceneData.View = reinterpret_cast<Matrix4D&>(mat.data);
+		ShaderSceneData->View = reinterpret_cast<Matrix4D&>(mat.data);
 	}
+
+	/*--------------------------------------------------DEBUG-------------------------------------------------------*/
 
 private:
 
-	void CreateStorageBuffer(uint32 numOfActiveFrames, std::vector<VkBuffer>& bufferHandles, std::vector<VkDeviceMemory>& bufferDatas, const void* data, uint32 bufferSize)
+	void CreateStorageBuffers(const uint32 numBuffers, std::vector<VkBuffer>& bufferHandles, std::vector<VkDeviceMemory>& bufferDatas, const void* data, const uint64& bufferSize)
 	{
 		GW::GReturn Result;
 		VkPhysicalDevice PhysicalDevice = nullptr;
@@ -344,26 +288,34 @@ private:
 			return;
 		}
 
-		bufferHandles.resize(numOfActiveFrames);
-		bufferDatas.resize(numOfActiveFrames);
-
-		for (uint32 i = 0; i < numOfActiveFrames; ++i)
+		/* Resize vectors incase their not already resized */
+		if (bufferHandles.size() < numBuffers)
 		{
-			VkResult VResult = GvkHelper::create_buffer(PhysicalDevice, *Device, bufferSize,
-				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-				VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &bufferHandles[i], &bufferDatas[i]);
+			bufferHandles.resize(numBuffers);
+		}
+		if (bufferDatas.size() < numBuffers)
+		{
+			bufferDatas.resize(numBuffers);
+		}
 
-			GvkHelper::write_to_buffer(*Device, bufferDatas[i], data, bufferSize);
+		VkResult VResult;
+		for (uint32 i = 0; i < numBuffers; ++i)
+		{
+			VK_ASSERT(GvkHelper::create_buffer(PhysicalDevice, *Device, bufferSize,
+				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+				VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &bufferHandles[i], &bufferDatas[i]));
+
+			VK_ASSERT(GvkHelper::write_to_buffer(*Device, bufferDatas[i], data, bufferSize));
 		}
 	}
 
-	void CreateDescriptorSetLayout(uint32 numOfLayouts, VkDescriptorSetLayout* descSetLayout, uint32 bindingNum)
+	void CreateDescriptorSetLayouts(uint32 numOfLayouts, VkDescriptorSetLayout* descSetLayout)
 	{
 		VkDescriptorSetLayoutBinding* DescSetLayoutBinding = new VkDescriptorSetLayoutBinding[numOfLayouts];
 
 		for (uint32 i = 0; i < numOfLayouts; ++i)
 		{
-			DescSetLayoutBinding[i].binding = bindingNum;
+			DescSetLayoutBinding[i].binding = i;
 			DescSetLayoutBinding[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 			DescSetLayoutBinding[i].descriptorCount = 1;
 			DescSetLayoutBinding[i].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -379,79 +331,43 @@ private:
 		DescSetLayoutCreateInfo.pBindings = DescSetLayoutBinding;
 
 		// Create the descriptor
-		VkResult Result = vkCreateDescriptorSetLayout(*Device, &DescSetLayoutCreateInfo, nullptr, descSetLayout);
+		VK_ASSERT(vkCreateDescriptorSetLayout(*Device, &DescSetLayoutCreateInfo, nullptr, descSetLayout));
 
 		delete[] DescSetLayoutBinding;
 	}
 
-	void CreateDescriptorPool(uint32 numOfActiveFrames, VkDescriptorPool& descPool)
-	{
-		VkDescriptorPoolSize* DescPoolSize = new VkDescriptorPoolSize[numOfActiveFrames];
-		for (uint32 i = 0; i < numOfActiveFrames; ++i)
-		{
-			DescPoolSize[i].descriptorCount = numOfActiveFrames;
-			DescPoolSize[i].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		}
-
-		VkDescriptorPoolCreateInfo DescPoolCreateInfo = { };
-		DescPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		DescPoolCreateInfo.pNext = nullptr;
-		DescPoolCreateInfo.flags = 0;
-		DescPoolCreateInfo.maxSets = numOfActiveFrames;
-		DescPoolCreateInfo.poolSizeCount = numOfActiveFrames;
-		DescPoolCreateInfo.pPoolSizes = DescPoolSize;
-
-		VkResult Result = vkCreateDescriptorPool(*Device, &DescPoolCreateInfo, nullptr, &descPool);
-
-		delete[] DescPoolSize;
-	}
-
-	void AllocateDescriptorSets(uint32 numOfActiveFrames, VkDescriptorSetLayout& descSetLayout, std::vector<VkDescriptorSet>& descSets, VkDescriptorPool& descPool)
+	void AllocateDescriptorSet(uint32 numDescriptors, VkDescriptorSetLayout* descSetLayout, VkDescriptorSet* descSet, VkDescriptorPool* descPool)
 	{
 		VkDescriptorSetAllocateInfo DescSetAllocateInfo = { };
 		DescSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 		DescSetAllocateInfo.pNext = nullptr;
-		DescSetAllocateInfo.descriptorPool = descPool;
+		DescSetAllocateInfo.descriptorPool = *descPool;
 		DescSetAllocateInfo.descriptorSetCount = 1;
-		DescSetAllocateInfo.pSetLayouts = &descSetLayout;
+		DescSetAllocateInfo.pSetLayouts = descSetLayout;
 
-		descSets.resize(numOfActiveFrames);
-		for (uint32 i = 0; i < numOfActiveFrames; ++i)
-		{
-			VkResult Result = vkAllocateDescriptorSets(*Device, &DescSetAllocateInfo, &descSets[i]);
-			std::cout << std::endl;
-		}
+		VK_ASSERT(vkAllocateDescriptorSets(*Device, &DescSetAllocateInfo, descSet));
 	}
 
-	void LinkDescriptorSetsToBuffer(uint32 numOfActiveFrames, std::vector<VkDescriptorSet>& shaderStorageDescSets, std::vector<VkBuffer>& shaderStorageHandles, uint32 bindingNum, uint32 sizeOfBuffer)
+	void LinkDescriptorSetToBuffer(uint32 bindingNum, uint64 sizeOfBuffer, VkDescriptorSet* descSet, VkBuffer* bufferHandle)
 	{
-		VkDescriptorBufferInfo* DescBufferInfo = new VkDescriptorBufferInfo[numOfActiveFrames];
-		for (uint32 i = 0; i < numOfActiveFrames; ++i)
-		{
-			DescBufferInfo[i].buffer = shaderStorageHandles[i];
-			DescBufferInfo[i].offset = 0;
-			DescBufferInfo[i].range = sizeOfBuffer;
-		}
+		VkDescriptorBufferInfo DescBufferInfo = { };
+		DescBufferInfo.buffer = *bufferHandle;
+		DescBufferInfo.offset = 0;
+		DescBufferInfo.range = sizeOfBuffer;
 
-		VkWriteDescriptorSet* DescWriteSets = new VkWriteDescriptorSet[numOfActiveFrames];
-		for (uint32 i = 0; i < numOfActiveFrames; ++i)
-		{
-			DescWriteSets[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			DescWriteSets[i].pNext = nullptr;
-			DescWriteSets[i].dstBinding = bindingNum;
-			DescWriteSets[i].dstSet = shaderStorageDescSets[i];
-			DescWriteSets[i].dstArrayElement = 0;
-			DescWriteSets[i].descriptorCount = 1;
-			DescWriteSets[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-			DescWriteSets[i].pImageInfo = nullptr;
-			DescWriteSets[i].pBufferInfo = &DescBufferInfo[i];
-			DescWriteSets[i].pTexelBufferView = nullptr;
-		}
+		VkWriteDescriptorSet DescWriteSets = { };
+		DescWriteSets.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		DescWriteSets.pNext = nullptr;
+		DescWriteSets.dstBinding = 0;
+		DescWriteSets.dstSet = *descSet;
+		DescWriteSets.dstArrayElement = 0;
+		DescWriteSets.descriptorCount = 1;
+		DescWriteSets.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		DescWriteSets.pImageInfo = nullptr;
+		DescWriteSets.pBufferInfo = &DescBufferInfo;
+		DescWriteSets.pTexelBufferView = nullptr;
 
 		// Link 
-		vkUpdateDescriptorSets(*Device, numOfActiveFrames, DescWriteSets, 0, nullptr);
-
-		delete[] DescBufferInfo;
-		delete[] DescWriteSets;
+		vkUpdateDescriptorSets(*Device, 1, &DescWriteSets, 0, nullptr);
 	}
 };

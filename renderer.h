@@ -464,7 +464,7 @@ public:
 		float TotalYaw = (Math::DegreesToRadians(65.0f) * MouseDeltaX / ScreenWidth + RightStickXAxis * ThumbSpeed) * CameraRotationSpeed;
 
 		// Camera Variables
-		const float CameraSpeed = 1.5f;
+		const float CameraSpeed = 10.0f;
 		float PerFrameSpeed = TimePassed * CameraSpeed;
 
 		// TODO: Part 4c
