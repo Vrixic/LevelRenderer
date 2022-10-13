@@ -5,8 +5,6 @@
 #include "LevelData.h"
 #include "StorageBuffer.h"
 
-#define DEBUG 1
-
 #if DEBUG
 #define VK_ASSERT(r)											\
 	if (r != VK_SUCCESS)										\
@@ -127,18 +125,21 @@ public:
 			VkCommandBuffer CommandBuffer;
 			VlkSurface->GetCommandBuffer(CurrentBuffer, (void**)&CommandBuffer);
 
+
+			ShaderSceneData->CameraWorldPosition = ShaderSceneData->View[0];
+
 			GvkHelper::write_to_buffer(*Device, ShaderStorageDatas[CurrentBuffer], ShaderSceneData, SceneDataSizeInBytes);
 			vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *PipelineLayout, 0, 1, &ShaderStorageDescSets[CurrentBuffer], 0, nullptr);
 		}
 	}
 
 	/* Loads all data needed to render the level */
-	void Load()
+	std::vector<StaticMesh> Load()
 	{
 		if (IsDataLoaded)
 		{
 			std::cout << "\n[Level]: " << Name << " is already loaded in.. Failed to load!";
-			return;
+			return { };
 		}
 
 		/* Load the file */
@@ -146,12 +147,43 @@ public:
 		FileHelper::ReadGameLevelFile(Path.c_str(), RawData);
 		WorldData = new LevelData(Device, VlkSurface, RawData);
 
+		StaticMesh TempStaticMesh;
+		Mesh TempMesh;
+		uint32 IndexOffset = 0;
+		uint32 VertexOffset = 0;
+		uint32 MaterialOffset = 0;
+		uint32 WorldMatricesOffset = 0;
+		std::vector<StaticMesh> StaticMeshes;
+
 		/* Load the Materices and Materials */
 		for (uint32 i = 0; i < RawData.size(); i++)
 		{
+			TempStaticMesh.VertexCount = RawData[i].VertexCount;
+			TempStaticMesh.IndexCount = RawData[i].IndexCount;
+			TempStaticMesh.MaterialCount = RawData[i].MaterialCount;
+			TempStaticMesh.MeshCount = RawData[i].MeshCount;
+			TempStaticMesh.InstanceCount = RawData[i].InstanceCount;
+
+			TempStaticMesh.VertexOffset = VertexOffset;
+			TempStaticMesh.IndexOffset = IndexOffset;
+			TempStaticMesh.MaterialIndex = MaterialOffset;
+			TempStaticMesh.WorldMatrixIndex = WorldMatricesOffset;
+
+			StaticMeshes.push_back(TempStaticMesh);
+
+			for (uint32 j = 0; j < RawData[i].MeshCount; ++j)
+			{
+				TempMesh.IndexCount = RawData[i].Meshes[j].drawInfo.indexCount;
+				TempMesh.IndexOffset = RawData[i].Meshes[j].drawInfo.indexOffset;
+				TempMesh.Name = RawData[i].Meshes[j].name;
+				TempMesh.MaterialIndex = RawData[i].Meshes[j].materialIndex;
+
+				StaticMeshes[i].Meshes.push_back(TempMesh);
+			}			
+			
 			for (uint32 j = 0; j < RawData.size(); ++j)
 			{
-				ShaderSceneData->WorldMatrices[j] = RawData[i].WorldMatrices[j];
+				ShaderSceneData->WorldMatrices[j + WorldMatricesOffset] = RawData[i].WorldMatrices[j];
 			}
 
 			for (uint32 j = 0; j < RawData[i].MaterialCount; ++j)
@@ -168,8 +200,13 @@ public:
 				Mat.Emissive = reinterpret_cast<Vector3D&>(RawData[i].Materials[j].attrib.Ke);
 				Mat.IlluminationModel = RawData[i].Materials[j].attrib.illum;
 
-				ShaderSceneData->Materials[j] = Mat;
+				ShaderSceneData->Materials[j + MaterialOffset] = Mat;
 			}
+
+			IndexOffset += RawData[i].IndexCount;
+			VertexOffset += RawData[i].VertexCount;
+			MaterialOffset += RawData[i].MaterialCount;
+			WorldMatricesOffset += RawData[i].WorldMatrices.size();
 		}
 
 		/* Load Global Stuff */
@@ -193,6 +230,12 @@ public:
 
 		ShaderSceneData->View = reinterpret_cast<Matrix4D&>(View);
 		ShaderSceneData->Projection = reinterpret_cast<Matrix4D&>(Projection);
+
+		Vector3D DirLight(1.0f, -1.0f, -2.0f);
+		DirLight.Normalize();
+		ShaderSceneData->DirectionalLightDirection = Vector4D(DirLight, 0.0f);
+		ShaderSceneData->SunAmbient = Vector4D(0.25f, 0.25f, 0.35f, 1.0f);
+		ShaderSceneData->DirectionalLightColor = Vector4D(0.9f, 0.9f, 1.0f, 1.0f);
 
 		WorldData->Load();
 
@@ -235,6 +278,8 @@ public:
 		}
 
 		IsDataLoaded = true;
+
+		return StaticMeshes;
 	}
 
 	/* Unloads/Flushes all data needed to render */

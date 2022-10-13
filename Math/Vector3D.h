@@ -184,7 +184,7 @@ inline float Vector3D::LengthSquared() const
 
 inline void Vector3D::Normalize()
 {
-	const float magnitude = (1.0f /  LengthSquared());
+	const float magnitude = (1.0f / Length());
 	X *= magnitude;
 	Y *= magnitude;
 	Z *= magnitude;

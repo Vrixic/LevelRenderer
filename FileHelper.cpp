@@ -6,7 +6,7 @@ std::string FileHelper::LoadShaderFileIntoString(const char* shaderFilePath)
 	std::ifstream FileHandle(shaderFilePath);
 	if (!FileHandle.is_open())
 	{
-#if NDEBUG
+#if DEBUG
 		std::cout << "ERROR: Shader Source File \"" << shaderFilePath << "\" Not Found!" << std::endl;
 #endif // DEBUG
 		return "";
@@ -30,12 +30,12 @@ void FileHelper::ReadGameLevelFile(const char* path, std::vector<RawMeshData>& M
 
 	H2B::Parser Parser;
 
-#if NDEBUG
+#if DEBUG
 	std::cout << "[FILE] Opening GameLevel.txt\n";
 #endif // DEBUG
 	if (FileHandle.is_open())
 	{
-#if NDEBUG
+#if DEBUG
 		std::cout << "[FILE] Opened GameLevel.txt\n";
 #endif // DEBUG
 		while (true)
@@ -88,7 +88,7 @@ void FileHelper::ReadGameLevelFile(const char* path, std::vector<RawMeshData>& M
 					/* New mesh */
 					if (bNewMesh)
 					{
-#if NDEBUG
+#if DEBUG
 						std::cout << "[Mesh Found]: " << LastMeshName << "\n";
 #endif // DEBUG
 
@@ -98,7 +98,7 @@ void FileHelper::ReadGameLevelFile(const char* path, std::vector<RawMeshData>& M
 
 						if (!FillRawMeshDataFromH2BFile(("../Assets/h2b/" + LastMeshName + ".h2b").c_str(), Parser, EmptyMesh))
 						{
-#if NDEBUG
+#if DEBUG
 							std::cout << "[Error]: Mesh h2b file could not be read or found....\n";
 #endif // DEBUG
 						}
@@ -109,13 +109,13 @@ void FileHelper::ReadGameLevelFile(const char* path, std::vector<RawMeshData>& M
 				}
 
 				Meshes[MeshIndex].InstanceCount++;
-#if NDEBUG
+#if DEBUG
 				std::cout << "[Mesh Instance]: " << LastMeshName << ": " << Meshes[MeshIndex].InstanceCount << "\n";
 #endif // DEBUG
 
 				/* Read the Matrix */
 				ReadMatrixFromFile(FileHandle, Matrix, Line);
-#if NDEBUG
+#if DEBUG
 				std::cout << Line;
 #endif // DEBUG
 
@@ -127,7 +127,7 @@ void FileHelper::ReadGameLevelFile(const char* path, std::vector<RawMeshData>& M
 	}
 	else
 	{
-#if NDEBUG
+#if DEBUG
 		std::cout << "[FILE] Error could not open file..." << std::endl;
 #endif // DEBUG
 	}
@@ -174,7 +174,7 @@ bool FileHelper::FillRawMeshDataFromH2BFile(const char* filePath, H2B::Parser& p
 		outMesh.Batches = parser.batches;
 		outMesh.Meshes = parser.meshes;
 
-#if NDEBUG
+#if DEBUG
 		std::cout << "[H2B]: Successfully parsed file" << " filePath" << "....\n";
 #endif // DEBUG
 

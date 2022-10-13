@@ -8,6 +8,12 @@
 #include "FileHelper.h"
 #include "Level.h"
 
+struct ConstantBuffer
+{
+	uint32 MeshID;
+	uint32 MaterialID;
+};
+
 // Creation, Rendering & Cleanup
 class Renderer
 {
@@ -52,6 +58,7 @@ public:
 	//GW::MATH::GMATRIXF GridViewMatrix;
 
 	Level* World;
+	std::vector<StaticMesh> StaticMeshes;
 
 	Renderer(GW::SYSTEM::GWindow _win, GW::GRAPHICS::GVulkanSurface _vlk)
 	{
@@ -310,7 +317,7 @@ public:
 		//PushConstantRange.size = sizeof(ShaderVars);
 
 		/* Load World Before pipeline creation */
-		World->Load();
+		StaticMeshes = World->Load();
 
 		std::vector<VkDescriptorSetLayout*> DescSetLayouts = World->GetShaderStorageDescSetLayouts();
 
@@ -323,8 +330,13 @@ public:
 
 		pipeline_layout_create_info.flags = 0;
 
-		pipeline_layout_create_info.pushConstantRangeCount = 0; // TODO: Part 2d 
-		pipeline_layout_create_info.pPushConstantRanges = nullptr; // TODO: Part 2d
+		VkPushConstantRange PushConstantRange = { };
+		PushConstantRange.offset = 0;
+		PushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+		PushConstantRange.size = sizeof(ConstantBuffer);
+
+		pipeline_layout_create_info.pushConstantRangeCount = 1; // TODO: Part 2d 
+		pipeline_layout_create_info.pPushConstantRanges = &PushConstantRange; // TODO: Part 2d
 
 		vkCreatePipelineLayout(device, &pipeline_layout_create_info,
 			nullptr, &pipelineLayout);
@@ -348,7 +360,7 @@ public:
 		vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1,
 			&pipeline_create_info, nullptr, &pipeline);
 
-		
+
 
 		/***************** CLEANUP / SHUTDOWN ******************/
 		// GVulkanSurface will inform us when to release any allocated resources
@@ -388,8 +400,50 @@ public:
 		GW::MATH::GMatrix::ProjectionDirectXLHF(FOV, AspectRatio, NearPlane, FarPlane, ProjectionMatrix);
 
 		World->Bind();
-		//vkCmdDrawIndexed(commandBuffer, 1560, 1, 11755, 6142, 0 );
-		vkCmdDrawIndexed(commandBuffer, 11754, 1, 0, 0, 0);
+
+		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
+		/* Draw Floating Island*/
+		ConstantBuffer Buffer;
+		//Buffer.MeshID = StaticMeshes[1].WorldMatrixIndex;
+		//Buffer.MaterialID = StaticMeshes[1].MaterialIndex;
+		//
+		//vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
+		//	VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ConstantBuffer), &Buffer);
+		//vkCmdDrawIndexed(commandBuffer,
+		//	StaticMeshes[1].IndexCount,
+		//	StaticMeshes[1].InstanceCount, 
+		//	StaticMeshes[1].IndexOffset,
+		//	StaticMeshes[1].VertexOffset, 0);
+		//
+		//Buffer.MeshID = StaticMeshes[8].WorldMatrixIndex;
+		//Buffer.MaterialID = StaticMeshes[8].MaterialIndex;
+		//
+		//vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
+		//	VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ConstantBuffer), &Buffer);
+		//vkCmdDrawIndexed(commandBuffer,
+		//	StaticMeshes[8].IndexCount,
+		//	StaticMeshes[8].InstanceCount, 
+		//	StaticMeshes[8].IndexOffset,
+		//	StaticMeshes[8].VertexOffset, 0);
+
+		for (uint32 i = 0; i < StaticMeshes.size(); ++i)
+		{
+			Buffer.MeshID = StaticMeshes[i].WorldMatrixIndex;
+
+			for (uint32 j = 0; j < StaticMeshes[i].MeshCount; ++j)
+			{
+				Buffer.MaterialID = StaticMeshes[i].MaterialIndex + StaticMeshes[i].Meshes[j].MaterialIndex;
+
+				vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
+					VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ConstantBuffer), &Buffer);
+				vkCmdDrawIndexed(commandBuffer,
+					StaticMeshes[i].Meshes[j].IndexCount,
+					StaticMeshes[i].InstanceCount,
+					StaticMeshes[i].IndexOffset + StaticMeshes[i].Meshes[j].IndexOffset,
+					StaticMeshes[i].VertexOffset, 0);
+			}
+		}
+		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
 
 		// TODO: Part 3b -> View projection matrix 
 		//GW::MATH::GMatrix::MultiplyMatrixF(GridViewMatrix, ProjectionMatrix, ViewProjectionMatrix);

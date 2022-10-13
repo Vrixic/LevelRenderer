@@ -1,4 +1,4 @@
-#define MAX_SUBMESH_PER_DRAW 1024
+#define MAX_SUBMESH_PER_DRAW 512
 
 struct Material
 {
@@ -35,6 +35,13 @@ struct SceneDataGlobal
 [[vk::binding(0)]]
 StructuredBuffer<SceneDataGlobal> SceneData;
 
+[[vk::push_constant]]
+cbuffer ConstantBuffer
+{
+    uint MeshID;
+    uint MaterialID;
+};
+
 
 struct PixelIn
 {
@@ -49,19 +56,19 @@ struct PixelIn
 // TODO: Part 4b
 float4 main(PixelIn input) : SV_TARGET
 {
-    //float4 DiffuseColor = float4(SceneData[0].Materials[MeshID].Diffuse, 1.0f);
-    //float3 SurfaceNormal = normalize(input.Normal);
-    //float3 LightDirection = SceneData[0].LightDirection.xyz;
-    //float LightRatio = saturate(dot(SurfaceNormal, -LightDirection));
-    //
-    ///* Specular Component */
+    float4 DiffuseColor = float4(SceneData[0].Materials[MaterialID].Diffuse, 1.0f);
+    float3 SurfaceNormal = normalize(input.Normal);
+    float3 LightDirection = SceneData[0].LightDirection.xyz;
+    float LightRatio = saturate(dot(SurfaceNormal, -LightDirection));
+    
+    /* Specular Component */
     //float3 ViewDirection = normalize(SceneData[0].CameraWorldPosition.xyz - input.PositionWorld);
     //float3 HalfVector = normalize(reflect(LightDirection, SurfaceNormal));
-    //float Intensity = max(pow(saturate(dot(ViewDirection, HalfVector)), SceneData[0].Materials[MeshID].SpecularExponent), 0);
+    //float Intensity = max(pow(saturate(dot(ViewDirection, HalfVector)), SceneData[0].Materials[MaterialID].SpecularExponent), 0);
     //
-    //float4 ReflectedLight = float4(SceneData[0].Materials[MeshID].Specular, 1.0f) * 1.0f * Intensity;
+    //float4 ReflectedLight = float4(SceneData[0].Materials[MaterialID].SpecularColor, 1.0f) * 1.0f * Intensity;
     //
-    //return saturate(LightRatio * SceneData[0].LightColor + SceneData[0].SunAmbient) * DiffuseColor + ReflectedLight;
+    return saturate(LightRatio * SceneData[0].LightColor + SceneData[0].SunAmbient) * DiffuseColor; // + ReflectedLight;
 	
-    return input.Color;
+    //return float4(SceneData[0].Materials[MaterialID].Diffuse, 1);
 }

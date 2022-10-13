@@ -57,6 +57,7 @@ struct StaticMesh
 	uint32 MeshCount;
 	uint32 InstanceCount;
 
+	uint32 VertexOffset;
 	uint32 IndexOffset;
 	uint32 MaterialIndex;
 	uint32 WorldMatrixIndex;

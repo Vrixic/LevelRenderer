@@ -1,6 +1,6 @@
 #pragma pack_matrix(row_major)
 
-#define MAX_SUBMESH_PER_DRAW 1024
+#define MAX_SUBMESH_PER_DRAW 512
 
 struct Material
 {
@@ -37,12 +37,21 @@ struct SceneDataGlobal
 [[vk::binding(0)]]
 StructuredBuffer<SceneDataGlobal> SceneData;
 
+[[vk::push_constant]]
+cbuffer ConstantBuffer
+{
+    uint MeshID;
+    uint MaterialID;
+};
+
 struct VertexIn
 {
     [[vk::location(0)]] float2 UV : TEXTCOORD0;
     [[vk::location(1)]] float3 Position : POSITION;
     [[vk::location(2)]] float3 Normal : NORMAL0;
     [[vk::location(3)]] float4 Color : COLOR0;
+    
+    uint InstanceID : SV_INSTANCEID;
 };
 
 struct VertexOut
@@ -67,7 +76,8 @@ VertexOut main(VertexIn inputVertex)
 	
     output.Position = float4(inputVertex.Position, 1);
     
-    output.Position = mul(output.Position, SceneData[0].Matrices[0]);
+    output.Position = mul(output.Position, SceneData[0].Matrices[MeshID + inputVertex.InstanceID]);
+    output.PositionWorld = output.Position;
     output.Position = mul(output.Position, SceneData[0].View);
     output.Position = mul(output.Position, SceneData[0].Projection);
     
