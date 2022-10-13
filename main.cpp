@@ -17,7 +17,7 @@ int main()
 		// TODO: Part 1a
 		win.SetWindowName("Vrij Patel + Assignment 1 - Vulkan");
 		VkClearValue clrAndDepth[2];
-		clrAndDepth[0].color = { {0.0f, 0.0f, 0.0f, 1} }; // TODO: Part 1a
+		clrAndDepth[0].color = { {0.25f, 0.25f, 0.25f, 1} }; // TODO: Part 1a
 		clrAndDepth[1].depthStencil = { 1.0f, 0u };
 		msgs.Create([&](const GW::GEvent& e) {
 			GW::SYSTEM::GWindow::Events q;
@@ -27,8 +27,8 @@ int main()
 		win.Register(msgs);
 #ifndef NDEBUG
 		const char* debugLayers[] = {
-			"VK_LAYER_KHRONOS_validation", // standard validation layer
-			//"VK_LAYER_RENDERDOC_Capture" // add this if you have installed RenderDoc
+			//"VK_LAYER_KHRONOS_validation", // standard validation layer
+			"VK_LAYER_RENDERDOC_Capture" // add this if you have installed RenderDoc
 			//"VK_LAYER_LUNARG_standard_validation", // add if not on MacOS
 		};
 		if (+vulkan.Create(win, GW::GRAPHICS::DEPTH_BUFFER_SUPPORT,

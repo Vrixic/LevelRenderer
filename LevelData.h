@@ -8,6 +8,8 @@
 #include "FileHelper.h"
 #include "GatewareDefine.h"
 
+#include "FSLogo.h"
+
 struct Vertex
 {
 	Vector2D TexCoord;
@@ -52,18 +54,30 @@ private:
 	VkBuffer IndexBufferHandle = nullptr;
 	VkDeviceMemory IndexBufferData = nullptr;
 
-	/* Vertex/Pixel Shaders */
-	//VkShaderModule VertexShader = nullptr;
-	//VkShaderModule PixelShader = nullptr;
-
 public:
 	LevelData(VkDevice* deviceHandle, GW::GRAPHICS::GVulkanSurface* vlkSurface, std::vector<RawMeshData>& rawMeshDatas)
 	{
 		Device = deviceHandle;
 		VlkSurface = vlkSurface;
 
-		TotalIndices = 0;
-		TotalVertices = 0;
+		TotalIndices = 0;// FSLogo_indexcount;
+		TotalVertices = 0;// FSLogo_vertexcount;
+
+		/*TotalIndices  += FSLogo_indexcount;
+		TotalVertices += FSLogo_vertexcount;
+
+		Vertex V;
+		V.Color = Vector4D(0.5f, 0.5f, 0.5f, 1.0f);
+		for (uint32 i = 0; i < FSLogo_vertexcount; ++i)
+		{
+			V.Position = Vector3D(FSLogo_vertices[i].pos.x, FSLogo_vertices[i].pos.y, FSLogo_vertices[i].pos.z);
+			Vertices.push_back(V);
+		}
+
+		for (uint32 i = 0; i < FSLogo_indexcount; ++i)
+		{
+			Indices.push_back(FSLogo_indices[i]);
+		}*/
 
 		for (uint32 i = 0; i < rawMeshDatas.size(); ++i)
 		{
@@ -87,9 +101,6 @@ public:
 			vkDestroyBuffer(*Device, IndexBufferHandle, nullptr);
 			vkFreeMemory(*Device, IndexBufferData, nullptr);
 		}		
-
-		//vkDestroyShaderModule(Device, VertexShader, nullptr);
-		//vkDestroyShaderModule(Device, PixelShader, nullptr);
 	}
 
 public:
@@ -153,42 +164,6 @@ public:
 	}
 
 private:
-//	void LoadShaders()
-//	{
-//		shaderc_compiler_t compiler = shaderc_compiler_initialize();
-//		shaderc_compile_options_t options = shaderc_compile_options_initialize();
-//		shaderc_compile_options_set_source_language(options, shaderc_source_language_hlsl);
-//		shaderc_compile_options_set_invert_y(options, true); // TODO: Part 2i
-//#ifndef NDEBUG
-//		shaderc_compile_options_set_generate_debug_info(options);
-//#endif
-//
-//		std::string VertexShaderSource = FileHelper::LoadShaderFileIntoString("../Shaders/ModelVertex.hlsl");
-//		std::string PixelShaderSource = FileHelper::LoadShaderFileIntoString("../Shaders/ModelPixel.hlsl");
-//
-//		// Create Vertex Shader
-//		shaderc_compilation_result_t result = shaderc_compile_into_spv( // compile
-//			compiler, VertexShaderSource.c_str(), VertexShaderSource.length(),
-//			shaderc_vertex_shader, "main.vert", "main", options);
-//		if (shaderc_result_get_compilation_status(result) != shaderc_compilation_status_success) // errors?
-//			std::cout << "Vertex Shader Errors: " << shaderc_result_get_error_message(result) << std::endl;
-//		GvkHelper::create_shader_module(Device, shaderc_result_get_length(result), // load into Vulkan
-//			(char*)shaderc_result_get_bytes(result), &VertexShader);
-//		shaderc_result_release(result); // done
-//		// Create Pixel Shader
-//		result = shaderc_compile_into_spv( // compile
-//			compiler, PixelShaderSource.c_str(), PixelShaderSource.length(),
-//			shaderc_fragment_shader, "main.frag", "main", options);
-//		if (shaderc_result_get_compilation_status(result) != shaderc_compilation_status_success) // errors?
-//			std::cout << "Pixel Shader Errors: " << shaderc_result_get_error_message(result) << std::endl;
-//		GvkHelper::create_shader_module(Device, shaderc_result_get_length(result), // load into Vulkan
-//			(char*)shaderc_result_get_bytes(result), &PixelShader);
-//		shaderc_result_release(result); // done
-//		// Free runtime shader compiler resources
-//		shaderc_compile_options_release(options);
-//		shaderc_compiler_release(compiler);
-//	}
-
 	void LoadVertexData()
 	{
 		GW::GReturn Result;

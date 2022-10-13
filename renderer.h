@@ -210,7 +210,7 @@ public:
 		// Assembly State
 		VkPipelineInputAssemblyStateCreateInfo assembly_create_info = {};
 		assembly_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-		assembly_create_info.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+		assembly_create_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 		assembly_create_info.primitiveRestartEnable = false;
 		// Vertex Input State
 		// TODO: Part 1c
@@ -312,14 +312,14 @@ public:
 		/* Load World Before pipeline creation */
 		World->Load();
 
-		std::vector<VkDescriptorSetLayout> DescSetLayouts = World->GetShaderStorageDescSetLayouts();
+		std::vector<VkDescriptorSetLayout*> DescSetLayouts = World->GetShaderStorageDescSetLayouts();
 
 		// Descriptor pipeline layout
 		VkPipelineLayoutCreateInfo pipeline_layout_create_info = { };
 		pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 		pipeline_layout_create_info.pNext = nullptr;
 		pipeline_layout_create_info.setLayoutCount = DescSetLayouts.size();
-		pipeline_layout_create_info.pSetLayouts = DescSetLayouts.data();
+		pipeline_layout_create_info.pSetLayouts = *DescSetLayouts.data();
 
 		pipeline_layout_create_info.flags = 0;
 
@@ -388,7 +388,8 @@ public:
 		GW::MATH::GMatrix::ProjectionDirectXLHF(FOV, AspectRatio, NearPlane, FarPlane, ProjectionMatrix);
 
 		World->Bind();
-		vkCmdDrawIndexed(commandBuffer, 11754, 1, 0, 0, 0 );
+		//vkCmdDrawIndexed(commandBuffer, 1560, 1, 11755, 6142, 0 );
+		vkCmdDrawIndexed(commandBuffer, 11754, 1, 0, 0, 0);
 
 		// TODO: Part 3b -> View projection matrix 
 		//GW::MATH::GMatrix::MultiplyMatrixF(GridViewMatrix, ProjectionMatrix, ViewProjectionMatrix);
@@ -419,84 +420,88 @@ public:
 		std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
 		// Define All Of the Key/Controller State Variables 
-		//float RightTriggerState = 0, LeftTriggerState = 0, LeftStickYAxis = 0, LeftStickXAxis = 0, RightStickYAxis = 0, RightStickXAxis = 0;
-		//float WKeyState, SKeyState = 0, AKeyState = 0, DKeyState = 0, SpaceKeyState = 0, LeftShiftKeyState = 0;
-		//float MouseDeltaX = 0, MouseDeltaY = 0;
-		//unsigned int ScreenHeight = 0, ScreenWidth = 0;
-		//float CameraRotationSpeed = 10.0f;
+		float RightTriggerState = 0, LeftTriggerState = 0, LeftStickYAxis = 0, LeftStickXAxis = 0, RightStickYAxis = 0, RightStickXAxis = 0;
+		float WKeyState, SKeyState = 0, AKeyState = 0, DKeyState = 0, SpaceKeyState = 0, LeftShiftKeyState = 0;
+		float MouseDeltaX = 0, MouseDeltaY = 0;
+		unsigned int ScreenHeight = 0, ScreenWidth = 0;
+		float CameraRotationSpeed = 10.0f;
 
-		//// Get Screen Width/Height
-		//win.GetWidth(ScreenWidth);
-		//win.GetHeight(ScreenHeight);
+		// Get Screen Width/Height
+		win.GetWidth(ScreenWidth);
+		win.GetHeight(ScreenHeight);
 
-		//// Get The Key/Controller States
-		//Input.GetState(G_KEY_SPACE, SpaceKeyState);
-		//Input.GetState(G_KEY_LEFTSHIFT, LeftShiftKeyState);
+		// Get The Key/Controller States
+		Input.GetState(G_KEY_SPACE, SpaceKeyState);
+		Input.GetState(G_KEY_LEFTSHIFT, LeftShiftKeyState);
 
-		//Input.GetState(G_KEY_W, WKeyState);
-		//Input.GetState(G_KEY_A, AKeyState);
-		//Input.GetState(G_KEY_S, SKeyState);
-		//Input.GetState(G_KEY_D, DKeyState);
+		Input.GetState(G_KEY_W, WKeyState);
+		Input.GetState(G_KEY_A, AKeyState);
+		Input.GetState(G_KEY_S, SKeyState);
+		Input.GetState(G_KEY_D, DKeyState);
 
-		//if (Input.GetMouseDelta(MouseDeltaX, MouseDeltaY) != GW::GReturn::SUCCESS)
-		//{
-		//	MouseDeltaX = 0;
-		//	MouseDeltaY = 0;
-		//};
+		if (Input.GetMouseDelta(MouseDeltaX, MouseDeltaY) != GW::GReturn::SUCCESS)
+		{
+			MouseDeltaX = 0;
+			MouseDeltaY = 0;
+		};
 
-		//Controller.GetState(0, G_RIGHT_TRIGGER_AXIS, RightTriggerState);
-		//Controller.GetState(0, G_LEFT_TRIGGER_AXIS, LeftTriggerState);
-		//Controller.GetState(0, G_LY_AXIS, LeftStickYAxis);
-		//Controller.GetState(0, G_LX_AXIS, LeftStickXAxis);
-		//Controller.GetState(0, G_RY_AXIS, RightStickYAxis);
-		//Controller.GetState(0, G_RX_AXIS, RightStickXAxis);
+		Controller.GetState(0, G_RIGHT_TRIGGER_AXIS, RightTriggerState);
+		Controller.GetState(0, G_LEFT_TRIGGER_AXIS, LeftTriggerState);
+		Controller.GetState(0, G_LY_AXIS, LeftStickYAxis);
+		Controller.GetState(0, G_LX_AXIS, LeftStickXAxis);
+		Controller.GetState(0, G_RY_AXIS, RightStickYAxis);
+		Controller.GetState(0, G_RX_AXIS, RightStickXAxis);
 
-		//// Calculate The Deltas 		
-		//float DeltaX = DKeyState - AKeyState + LeftStickXAxis;
-		//float DeltaY = (SpaceKeyState - LeftShiftKeyState) + (RightTriggerState - LeftTriggerState);
-		//float DeltaZ = WKeyState - SKeyState + LeftStickYAxis;
-		//float ThumbSpeed = PI * TimePassed;
+		GMATRIXF GridViewMatrix = World->GetViewMatrix();
 
-		//float TotalPitch = (Math::DegreesToRadians(65.0f) * MouseDeltaY / ScreenHeight + RightStickYAxis * -ThumbSpeed) * CameraRotationSpeed;
-		//float TotalYaw = (Math::DegreesToRadians(65.0f) * MouseDeltaX / ScreenWidth + RightStickXAxis * ThumbSpeed) * CameraRotationSpeed;
+		// Calculate The Deltas 		
+		float DeltaX = DKeyState - AKeyState + LeftStickXAxis;
+		float DeltaY = (SpaceKeyState - LeftShiftKeyState) + (RightTriggerState - LeftTriggerState);
+		float DeltaZ = WKeyState - SKeyState + LeftStickYAxis;
+		float ThumbSpeed = PI * TimePassed;
 
-		//// Camera Variables
-		//const float CameraSpeed = 0.3f;
-		//float PerFrameSpeed = TimePassed * CameraSpeed;
+		float TotalPitch = (Math::DegreesToRadians(65.0f) * MouseDeltaY / ScreenHeight + RightStickYAxis * -ThumbSpeed) * CameraRotationSpeed;
+		float TotalYaw = (Math::DegreesToRadians(65.0f) * MouseDeltaX / ScreenWidth + RightStickXAxis * ThumbSpeed) * CameraRotationSpeed;
 
-		//// TODO: Part 4c
-		//Matrix.InverseF(GridViewMatrix, GridViewMatrix);
+		// Camera Variables
+		const float CameraSpeed = 1.5f;
+		float PerFrameSpeed = TimePassed * CameraSpeed;
 
-		//// TODO: Part 4d -> Camera Movement Y
-		//GMATRIXF CameraTranslationMatrix;
-		//Matrix.IdentityF(CameraTranslationMatrix);
+		// TODO: Part 4c
+		Matrix.InverseF(GridViewMatrix, GridViewMatrix);
 
-		//GW::MATH::GVECTORF CameraTranslateVector = { 0.0f, 0.0f, 0.0f, 1.0f };
-		//CameraTranslateVector.y += DeltaY * PerFrameSpeed;
-		//Matrix.TranslateGlobalF(CameraTranslationMatrix, CameraTranslateVector, CameraTranslationMatrix);
-		//Matrix.MultiplyMatrixF(GridViewMatrix, CameraTranslationMatrix, GridViewMatrix);
-		//Matrix.IdentityF(CameraTranslationMatrix);
-		//CameraTranslateVector.y = 0;
-		//// TODO: Part 4e -> Camera Movement XZ
-		//CameraTranslateVector.x = DeltaX * PerFrameSpeed;
-		//CameraTranslateVector.z = DeltaZ * PerFrameSpeed;
-		//Matrix.TranslateLocalF(CameraTranslationMatrix, CameraTranslateVector, CameraTranslationMatrix);
-		//Matrix.MultiplyMatrixF(CameraTranslationMatrix, GridViewMatrix, GridViewMatrix);
-		//// TODO: Part 4f -> Pitch Rotation 
-		//GMATRIXF PitchMatrix;
-		//Matrix.IdentityF(PitchMatrix);
-		//Matrix.RotateXLocalF(PitchMatrix, Math::DegreesToRadians(TotalPitch), PitchMatrix);
-		//Matrix.MultiplyMatrixF(PitchMatrix, GridViewMatrix, GridViewMatrix);
-		//// TODO: Part 4g -> Yaw Rotation
-		//GMATRIXF YawMatrix;
-		//Matrix.IdentityF(YawMatrix);
-		//Matrix.RotateYGlobalF(YawMatrix, Math::DegreesToRadians(TotalYaw), YawMatrix);
-		//GVECTORF CameraPosition = GridViewMatrix.row4;
-		//Matrix.MultiplyMatrixF(GridViewMatrix, YawMatrix, GridViewMatrix);
-		//GridViewMatrix.row4 = CameraPosition;
+		// TODO: Part 4d -> Camera Movement Y
+		GMATRIXF CameraTranslationMatrix;
+		Matrix.IdentityF(CameraTranslationMatrix);
 
-		//// TODO: Part 4c
-		//Matrix.InverseF(GridViewMatrix, GridViewMatrix);
+		GW::MATH::GVECTORF CameraTranslateVector = { 0.0f, 0.0f, 0.0f, 1.0f };
+		CameraTranslateVector.y += DeltaY * PerFrameSpeed;
+		Matrix.TranslateGlobalF(CameraTranslationMatrix, CameraTranslateVector, CameraTranslationMatrix);
+		Matrix.MultiplyMatrixF(GridViewMatrix, CameraTranslationMatrix, GridViewMatrix);
+		Matrix.IdentityF(CameraTranslationMatrix);
+		CameraTranslateVector.y = 0;
+		// TODO: Part 4e -> Camera Movement XZ
+		CameraTranslateVector.x = DeltaX * PerFrameSpeed;
+		CameraTranslateVector.z = DeltaZ * PerFrameSpeed;
+		Matrix.TranslateLocalF(CameraTranslationMatrix, CameraTranslateVector, CameraTranslationMatrix);
+		Matrix.MultiplyMatrixF(CameraTranslationMatrix, GridViewMatrix, GridViewMatrix);
+		// TODO: Part 4f -> Pitch Rotation 
+		GMATRIXF PitchMatrix;
+		Matrix.IdentityF(PitchMatrix);
+		Matrix.RotateXLocalF(PitchMatrix, Math::DegreesToRadians(TotalPitch), PitchMatrix);
+		Matrix.MultiplyMatrixF(PitchMatrix, GridViewMatrix, GridViewMatrix);
+		// TODO: Part 4g -> Yaw Rotation
+		GMATRIXF YawMatrix;
+		Matrix.IdentityF(YawMatrix);
+		Matrix.RotateYGlobalF(YawMatrix, Math::DegreesToRadians(TotalYaw), YawMatrix);
+		GVECTORF CameraPosition = GridViewMatrix.row4;
+		Matrix.MultiplyMatrixF(GridViewMatrix, YawMatrix, GridViewMatrix);
+		GridViewMatrix.row4 = CameraPosition;
+
+		// TODO: Part 4c
+		Matrix.InverseF(GridViewMatrix, GridViewMatrix);
+
+		World->SetViewMatrix(GridViewMatrix);
 
 		std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 		using ms = std::chrono::duration<float, std::milli>;

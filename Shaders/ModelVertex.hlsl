@@ -2,21 +2,21 @@
 
 #define MAX_SUBMESH_PER_DRAW 1024
 
-struct OBJ_ATTRIBUTES
+struct Material
 {
-    float3 Diffuse; // diffuse reflectivity
-    float Dissolve; // dissolve (transparency) 
-    float3 Specular; // specular reflectivity
-    float SpecularExponent; // specular exponent
-    float3 Ambient; // ambient reflectivity
-    float Sharpness; // local reflection map sharpness
-    float3 TransmissionFilter; // transmission filter
-    float OpticalDensity; // optical density (index of refraction)
-    float3 Emissive; // emissive reflectivity
-    uint IlluminationModel; // illumination model
+    float3 Diffuse;
+    float Dissolve; // Transparency
+    float3 SpecularColor;
+    float SpecularExponent;
+    float3 Ambient;
+    float Sharpness;
+    float3 TransmissionFilter;
+    float OpticalDensity;
+    float3 Emissive;
+    uint IlluminationModel;
 };
 
-struct GlobalModelData
+struct SceneDataGlobal
 {
 	/* Globally shared model information */
     float4x4 View;
@@ -27,21 +27,15 @@ struct GlobalModelData
     float4 LightColor;
     float4 SunAmbient;
     float4 CameraWorldPosition;
-};
-
-struct LocalModelData
-{
+    
     /* Per sub-mesh transform and material data */
     float4x4 Matrices[MAX_SUBMESH_PER_DRAW]; // World space matrices
-    OBJ_ATTRIBUTES Materials[MAX_SUBMESH_PER_DRAW]; // color/texture of surface info of all meshes
+    Material Materials[MAX_SUBMESH_PER_DRAW]; // color/texture of surface info of all meshes
 };
 
 /* Declare and access a Vulkan storage buffer in hlsl */
 [[vk::binding(0)]]
-StructuredBuffer<GlobalModelData> GlobalSceneData;
-
-[[vk::binding(1)]]
-StructuredBuffer<LocalModelData> LocalSceneData;
+StructuredBuffer<SceneDataGlobal> SceneData;
 
 struct VertexIn
 {
@@ -73,9 +67,9 @@ VertexOut main(VertexIn inputVertex)
 	
     output.Position = float4(inputVertex.Position, 1);
     
-    //output.Position = mul(output.Position, LocalSceneData[0].Matrices[0]);
-    output.Position = mul(output.Position, GlobalSceneData[0].View);
-    output.Position = mul(output.Position, GlobalSceneData[0].Projection);
+    output.Position = mul(output.Position, SceneData[0].Matrices[0]);
+    output.Position = mul(output.Position, SceneData[0].View);
+    output.Position = mul(output.Position, SceneData[0].Projection);
     
     output.Color = inputVertex.Color;
     output.Normal = inputVertex.Normal;
