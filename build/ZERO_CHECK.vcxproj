@@ -69,7 +69,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Midl>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\Vrij\Education\Fullsail_Classes\Project And Portfolio 4\LevelRenderer\LevelRenderer\ktx\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -79,7 +79,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Midl>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\Vrij\Education\Fullsail_Classes\Project And Portfolio 4\LevelRenderer\LevelRenderer\ktx\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -89,7 +89,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
     <Midl>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\Vrij\Education\Fullsail_Classes\Project And Portfolio 4\LevelRenderer\LevelRenderer\ktx\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -99,7 +99,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
     <Midl>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\Vrij\Education\Fullsail_Classes\Project And Portfolio 4\LevelRenderer\LevelRenderer\ktx\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -112,7 +112,7 @@
       <UseUtf8Encoding>Always</UseUtf8Encoding>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Checking Build System</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
-D:\Softwares\Cmake\bin\cmake.exe "-SD:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer" "-BD:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer/build" --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file "D:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer/build/Assignment_2_Vulkan.sln"
+D:\Softwares\Cmake\bin\cmake.exe "-SD:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer" "-BD:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer/build" --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file "D:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer/build/LevelRenderer.sln"
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -125,7 +125,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Checking Build System</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
-D:\Softwares\Cmake\bin\cmake.exe "-SD:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer" "-BD:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer/build" --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file "D:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer/build/Assignment_2_Vulkan.sln"
+D:\Softwares\Cmake\bin\cmake.exe "-SD:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer" "-BD:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer/build" --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file "D:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer/build/LevelRenderer.sln"
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -138,7 +138,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
       <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Checking Build System</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
-D:\Softwares\Cmake\bin\cmake.exe "-SD:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer" "-BD:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer/build" --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file "D:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer/build/Assignment_2_Vulkan.sln"
+D:\Softwares\Cmake\bin\cmake.exe "-SD:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer" "-BD:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer/build" --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file "D:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer/build/LevelRenderer.sln"
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -151,7 +151,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
       <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Checking Build System</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
-D:\Softwares\Cmake\bin\cmake.exe "-SD:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer" "-BD:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer/build" --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file "D:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer/build/Assignment_2_Vulkan.sln"
+D:\Softwares\Cmake\bin\cmake.exe "-SD:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer" "-BD:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer/build" --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file "D:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer/build/LevelRenderer.sln"
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
