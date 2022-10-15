@@ -63,28 +63,13 @@ public:
 		TotalIndices = 0;
 		TotalVertices = 0;
 
-		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
-
-		/*TotalIndices  += FSLogo_indexcount;
-		TotalVertices += FSLogo_vertexcount;
-
-		Vertex V;
-		V.Color = Vector4D(0.5f, 0.5f, 0.5f, 1.0f);
-		for (uint32 i = 0; i < FSLogo_vertexcount; ++i)
-		{
-			V.Position = Vector3D(FSLogo_vertices[i].pos.x, FSLogo_vertices[i].pos.y, FSLogo_vertices[i].pos.z);
-			Vertices.push_back(V);
-		}
-
-		for (uint32 i = 0; i < FSLogo_indexcount; ++i)
-		{
-			Indices.push_back(FSLogo_indices[i]);
-		}*/
-
-		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
-
 		for (uint32 i = 0; i < rawMeshDatas.size(); ++i)
 		{
+			if (rawMeshDatas[i].IsCamera)
+			{
+				continue;
+			}
+
 			AddRawMeshData(rawMeshDatas[i]);
 		}
 	}

@@ -51,7 +51,7 @@ struct VertexIn
     [[vk::location(2)]] float3 Normal : NORMAL0;
     [[vk::location(3)]] float4 Color : COLOR0;
     
-    uint InstanceID : SV_INSTANCEID;
+    [[vk::location(4)]] uint InstanceID : SV_INSTANCEID;
 };
 
 struct VertexOut
@@ -66,13 +66,6 @@ struct VertexOut
 VertexOut main(VertexIn inputVertex)
 {
     VertexOut output;
-    //output.Position = mul(float4(inputVertex.Position, 1.0f), SceneData[0].Matrices[MeshID]);
-    //output.PositionWorld = output.Position;
-    //output.Position = mul(output.Position, SceneData[0].View);
-    //output.Position = mul(output.Position, SceneData[0].Projection);
-    //
-    //output.Normal = mul(float4(inputVertex.Normal, 0.0f), SceneData[0].Matrices[MeshID]).xyz;
-    //output.UV = float2(0.0f, 0.0f);
 	
     output.Position = float4(inputVertex.Position, 1);
     
@@ -84,7 +77,6 @@ VertexOut main(VertexIn inputVertex)
     output.Color = inputVertex.Color;
     output.Normal = inputVertex.Normal;
     output.UV = inputVertex.UV;
-
-	//return float4(inputVertex.Position, 1.0f);
+    
     return output;
 }

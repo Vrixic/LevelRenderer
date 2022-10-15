@@ -62,13 +62,15 @@ float4 main(PixelIn input) : SV_TARGET
     float LightRatio = saturate(dot(SurfaceNormal, -LightDirection));
     
     /* Specular Component */
-    //float3 ViewDirection = normalize(SceneData[0].CameraWorldPosition.xyz - input.PositionWorld);
-    //float3 HalfVector = normalize(reflect(LightDirection, SurfaceNormal));
-    //float Intensity = max(pow(saturate(dot(ViewDirection, HalfVector)), SceneData[0].Materials[MaterialID].SpecularExponent), 0);
-    //
-    //float4 ReflectedLight = float4(SceneData[0].Materials[MaterialID].SpecularColor, 1.0f) * 1.0f * Intensity;
-    //
-    return saturate(LightRatio * SceneData[0].LightColor + SceneData[0].SunAmbient) * DiffuseColor; // + ReflectedLight;
-	
-    //return float4(SceneData[0].Materials[MaterialID].Diffuse, 1);
+    float4 ReflectedLight = float4(0, 0, 0, 0);
+    if (SceneData[0].Materials[MaterialID].SpecularExponent != 0)
+    {
+        float3 ViewDirection = normalize(SceneData[0].CameraWorldPosition.xyz - input.PositionWorld);
+        float3 HalfVector = normalize(reflect(LightDirection, SurfaceNormal));
+        float Intensity = max(pow(saturate(dot(ViewDirection, HalfVector)), SceneData[0].Materials[MaterialID].SpecularExponent), 0);
+        
+        ReflectedLight = float4(SceneData[0].Materials[MaterialID].SpecularColor, 1.0f) * 1.0f * Intensity;
+    }
+    
+    return saturate(LightRatio * SceneData[0].LightColor + SceneData[0].SunAmbient) * DiffuseColor + ReflectedLight;
 }

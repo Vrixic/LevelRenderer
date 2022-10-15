@@ -3,18 +3,49 @@
 #include <iostream>
 
 #include "LevelData.h"
-#include "StorageBuffer.h"
+//#include "StorageBuffer.h"
+#define KHRONOS_STATIC
+#include <ktxvulkan.h>
+#include <ktx.h>
 
 #if DEBUG
-#define VK_ASSERT(r)											\
+#define VK_ERROR(r)											\
 	if (r != VK_SUCCESS)										\
 	{															\
-		std::cout << "[VK_ASSERT] Failed in file: " << __FILE__;			\
+		std::cout << "[VK_ERROR] Failed in file: " << __FILE__;\
 		std::cout << " at line: " << __LINE__ << std::endl;		\
-	}															
+	}	
+
+#define GW_ERROR(g)											\
+	if (g != GW::GReturn::SUCCESS)								\
+	{															\
+		std::cout << "[GW_ERROR] Failed in file: " << __FILE__;\
+		std::cout << " at line: " << __LINE__ << std::endl;		\
+	}	
+
+#define KTX_ERROR(k)											\
+	if (k != KTX_error_code::KTX_SUCCESS)								\
+	{															\
+		std::cout << "[KTX_ERROR] Failed in file: " << __FILE__;\
+		std::cout << " at line: " << __LINE__ << std::endl;		\
+	}	
 #endif // DEBUG
 
+
+
 #define MAX_SUBMESH_PER_DRAW 512
+#define MAX_LIGHTS_PER_DRAW 16
+
+struct Texture
+{
+	VkSampler Sampler;
+	ktxVulkanTexture Texture;
+	VkImageView View;
+	uint32 Width, Height;
+	uint32 MipLevels;
+
+	VkDescriptorSet DescSet;
+};
 
 struct SceneData
 {
@@ -30,6 +61,13 @@ struct SceneData
 
 	Matrix4D WorldMatrices[MAX_SUBMESH_PER_DRAW];
 	Material Materials[MAX_SUBMESH_PER_DRAW];
+	
+	PointLight Lights[MAX_LIGHTS_PER_DRAW];
+
+	/* 16-byte padding for the lights,
+	* X component -> num of lights
+	*/
+	Vector4D NumOfLights;
 };
 
 class Level
@@ -48,6 +86,7 @@ private:
 
 	/* Used to tell vulkan what type of descriptor we want to set */
 	VkDescriptorSetLayout ShaderStorageDescSetLayout;
+	VkDescriptorSetLayout ShaderTextureDescSetLayout;
 
 	/* Used to reserve descriptor sets */
 	VkDescriptorPool ShaderStoragePool;
@@ -68,6 +107,10 @@ private:
 	SceneData* ShaderSceneData;
 
 	uint64 SceneDataSizeInBytes;
+
+	/*--------------------------------------------------DEBUG-------------------------------------------------------*/
+	Texture Texture_Test;
+	/*--------------------------------------------------DEBUG-------------------------------------------------------*/
 
 public:
 	Level(VkDevice* deviceHandle, GW::GRAPHICS::GVulkanSurface* vlkSurface, VkPipelineLayout* pipelineLayout, const char* name, const char* path)
@@ -101,7 +144,14 @@ public:
 		}
 
 		vkDestroyDescriptorSetLayout(*Device, ShaderStorageDescSetLayout, nullptr);
+		vkDestroyDescriptorSetLayout(*Device, ShaderTextureDescSetLayout, nullptr);
 		vkDestroyDescriptorPool(*Device, ShaderStoragePool, nullptr);
+
+		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
+		// Destory the texture
+		vkDestroyImageView(*Device, Texture_Test.View, nullptr);
+		vkDestroySampler(*Device, Texture_Test.Sampler, nullptr);
+		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
 
 		if (WorldData != nullptr)
 		{
@@ -109,6 +159,7 @@ public:
 		}
 
 		delete ShaderSceneData;
+
 	}
 
 public:
@@ -128,8 +179,12 @@ public:
 
 			ShaderSceneData->CameraWorldPosition = ShaderSceneData->View[0];
 
+			/* Bind Shader data desc set*/
 			GvkHelper::write_to_buffer(*Device, ShaderStorageDatas[CurrentBuffer], ShaderSceneData, SceneDataSizeInBytes);
 			vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *PipelineLayout, 0, 1, &ShaderStorageDescSets[CurrentBuffer], 0, nullptr);
+
+			/* Bind texture desc set */
+			vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *PipelineLayout, 1, 1, &Texture_Test.DescSet, 0, nullptr);
 		}
 	}
 
@@ -142,101 +197,15 @@ public:
 			return { };
 		}
 
+
 		/* Load the file */
 		std::vector<RawMeshData> RawData;
 		FileHelper::ReadGameLevelFile(Path.c_str(), RawData);
-		WorldData = new LevelData(Device, VlkSurface, RawData);
 
-		StaticMesh TempStaticMesh;
-		Mesh TempMesh;
-		uint32 IndexOffset = 0;
-		uint32 VertexOffset = 0;
-		uint32 MaterialOffset = 0;
-		uint32 WorldMatricesOffset = 0;
 		std::vector<StaticMesh> StaticMeshes;
+		SetupGlobalSceneDataVars(RawData, StaticMeshes);
 
-		/* Load the Materices and Materials */
-		for (uint32 i = 0; i < RawData.size(); i++)
-		{
-			TempStaticMesh.VertexCount = RawData[i].VertexCount;
-			TempStaticMesh.IndexCount = RawData[i].IndexCount;
-			TempStaticMesh.MaterialCount = RawData[i].MaterialCount;
-			TempStaticMesh.MeshCount = RawData[i].MeshCount;
-			TempStaticMesh.InstanceCount = RawData[i].InstanceCount;
-
-			TempStaticMesh.VertexOffset = VertexOffset;
-			TempStaticMesh.IndexOffset = IndexOffset;
-			TempStaticMesh.MaterialIndex = MaterialOffset;
-			TempStaticMesh.WorldMatrixIndex = WorldMatricesOffset;
-
-			StaticMeshes.push_back(TempStaticMesh);
-
-			for (uint32 j = 0; j < RawData[i].MeshCount; ++j)
-			{
-				TempMesh.IndexCount = RawData[i].Meshes[j].drawInfo.indexCount;
-				TempMesh.IndexOffset = RawData[i].Meshes[j].drawInfo.indexOffset;
-				TempMesh.Name = RawData[i].Meshes[j].name;
-				TempMesh.MaterialIndex = RawData[i].Meshes[j].materialIndex;
-
-				StaticMeshes[i].Meshes.push_back(TempMesh);
-			}			
-			
-			for (uint32 j = 0; j < RawData.size(); ++j)
-			{
-				ShaderSceneData->WorldMatrices[j + WorldMatricesOffset] = RawData[i].WorldMatrices[j];
-			}
-
-			for (uint32 j = 0; j < RawData[i].MaterialCount; ++j)
-			{
-				Material Mat;
-				Mat.Diffuse = reinterpret_cast<Vector3D&>(RawData[i].Materials[j].attrib.Kd);
-				Mat.Dissolve = RawData[i].Materials[j].attrib.d;
-				Mat.SpecularColor = reinterpret_cast<Vector3D&>(RawData[i].Materials[j].attrib.Ks);
-				Mat.SpecularExponent = RawData[i].Materials[j].attrib.Ns;
-				Mat.Ambient = reinterpret_cast<Vector3D&>(RawData[i].Materials[j].attrib.Ka);
-				Mat.Sharpness = RawData[i].Materials[j].attrib.sharpness;
-				Mat.TransmissionFilter = reinterpret_cast<Vector3D&>(RawData[i].Materials[j].attrib.Tf);
-				Mat.OpticalDensity = RawData[i].Materials[j].attrib.Ni;
-				Mat.Emissive = reinterpret_cast<Vector3D&>(RawData[i].Materials[j].attrib.Ke);
-				Mat.IlluminationModel = RawData[i].Materials[j].attrib.illum;
-
-				ShaderSceneData->Materials[j + MaterialOffset] = Mat;
-			}
-
-			IndexOffset += RawData[i].IndexCount;
-			VertexOffset += RawData[i].VertexCount;
-			MaterialOffset += RawData[i].MaterialCount;
-			WorldMatricesOffset += RawData[i].WorldMatrices.size();
-		}
-
-		/* Load Global Stuff */
-		GW::MATH::GMatrix Matrix;
-		GW::MATH::GMATRIXF View;
-		GW::MATH::GMATRIXF Projection
-			;
-		Matrix.IdentityF(View);
-		GW::MATH::GVECTORF Eye = { -472.0f, 250.0f, 457.0f, 1.0f };
-		GW::MATH::GVECTORF Target = { 0.0f, 0.0f, 0.0f, 1.0f };
-		GW::MATH::GVECTORF Up = { 0.0f, 1.0f, 0.0f, 0.0f };
-		Matrix.LookAtLHF(Eye, Target, Up, View);
-
-		Matrix.IdentityF(Projection);
-		float AspectRatio = 0.0f;
-		VlkSurface->GetAspectRatio(AspectRatio);
-		float FOV = Math::DegreesToRadians(65.0f);
-		float NearZ = 0.1f;
-		float FarZ = 1000.0f;
-		Matrix.ProjectionDirectXLHF(FOV, AspectRatio, NearZ, FarZ, Projection);
-
-		ShaderSceneData->View = reinterpret_cast<Matrix4D&>(View);
-		ShaderSceneData->Projection = reinterpret_cast<Matrix4D&>(Projection);
-
-		Vector3D DirLight(1.0f, -1.0f, -2.0f);
-		DirLight.Normalize();
-		ShaderSceneData->DirectionalLightDirection = Vector4D(DirLight, 0.0f);
-		ShaderSceneData->SunAmbient = Vector4D(0.25f, 0.25f, 0.35f, 1.0f);
-		ShaderSceneData->DirectionalLightColor = Vector4D(0.9f, 0.9f, 1.0f, 1.0f);
-
+		WorldData = new LevelData(Device, VlkSurface, RawData);
 		WorldData->Load();
 
 		/*  ----  */
@@ -254,28 +223,56 @@ public:
 		CreateStorageBuffers(NumOfActiveFrames, ShaderStorageHandles, ShaderStorageDatas, ShaderSceneData, SceneDataSizeInBytes);
 
 		/* Create only 1 descriptor set layout for our storage buffers */
-		CreateDescriptorSetLayouts(1, &ShaderStorageDescSetLayout);
+		CreateDescriptorSetLayouts(1, &ShaderStorageDescSetLayout, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+
+		/*--------------------------------------------------TESTING-------------------------------------------------------*/
+		CreateDescriptorSetLayouts(1, &ShaderTextureDescSetLayout, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+		/*--------------------------------------------------TESTING-------------------------------------------------------*/
 
 		/* Create only one pool for our descriptor sets */
-		VkDescriptorPoolSize DescPoolSize[1];
+		VkDescriptorPoolSize DescPoolSize[2];
 		DescPoolSize[0].descriptorCount = 1;
 		DescPoolSize[0].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
+		/*--------------------------------------------------TESTING-------------------------------------------------------*/
+		DescPoolSize[1].descriptorCount = 1;
+		DescPoolSize[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		/*--------------------------------------------------TESTING-------------------------------------------------------*/
 
 		VkDescriptorPoolCreateInfo DescPoolCreateInfo = { };
 		DescPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		DescPoolCreateInfo.pNext = nullptr;
 		DescPoolCreateInfo.flags = 0;
-		DescPoolCreateInfo.maxSets = NumOfActiveFrames;
-		DescPoolCreateInfo.poolSizeCount = 1;
+		DescPoolCreateInfo.maxSets = NumOfActiveFrames + 1;
+		DescPoolCreateInfo.poolSizeCount = 2;
 		DescPoolCreateInfo.pPoolSizes = DescPoolSize;
 
-		VK_ASSERT(vkCreateDescriptorPool(*Device, &DescPoolCreateInfo, nullptr, &ShaderStoragePool));
+		VK_ERROR(vkCreateDescriptorPool(*Device, &DescPoolCreateInfo, nullptr, &ShaderStoragePool));
 
 		for (uint32 i = 0; i < NumOfActiveFrames; ++i)
 		{
 			AllocateDescriptorSet(1, &ShaderStorageDescSetLayout, &ShaderStorageDescSets[i], &ShaderStoragePool);
 			LinkDescriptorSetToBuffer(0, SceneDataSizeInBytes, &ShaderStorageDescSets[i], &ShaderStorageHandles[i]);
 		}
+
+		/*--------------------------------------------------TESTING-------------------------------------------------------*/
+		LoadTexture("../Assets/Textures/Speeder/KTX/SpeederBikeForSketch_BaseColor.ktx", Texture_Test);
+
+		// Create the Image View and Sampler
+		CreateDefaultSampler(Texture_Test.Texture.levelCount, Texture_Test.Sampler);
+
+		// Create Image View
+		// Textures are not directly accessed by the shaders and are abstracted 
+		// by Image Views containing additional information and sub resource ranges
+		CreateDefaultImageViewFromTexture(&Texture_Test, Texture_Test.View);
+
+		// Create a Desc set for the texture
+		AllocateDescriptorSet(1, &ShaderTextureDescSetLayout, &Texture_Test.DescSet, &ShaderStoragePool);
+
+		// Update the descriptor set(s) to point to the correct values
+		LinkDescriptorSetToImageBuffer(0, &Texture_Test.DescSet, &Texture_Test);
+
+		/*--------------------------------------------------TESTING-------------------------------------------------------*/
 
 		IsDataLoaded = true;
 
@@ -303,10 +300,51 @@ public:
 		std::vector<VkDescriptorSetLayout*> Vec;
 		Vec.push_back(&ShaderStorageDescSetLayout);
 
+		/*--------------------------------------------------TESTING-------------------------------------------------------*/
+		Vec.push_back(&ShaderTextureDescSetLayout);
+		/*--------------------------------------------------TESTING-------------------------------------------------------*/
+
 		return Vec;
 	}
 
 	/*--------------------------------------------------DEBUG-------------------------------------------------------*/
+
+	/*
+	* Tip: Always use optimal tiled images for rendering
+	*/
+	void LoadTexture(const char* filePath, Texture& outTexture)
+	{
+		VkQueue GraphicsQueue = nullptr;
+		VkCommandPool CommandPool = nullptr;
+		VkPhysicalDevice PhysicalDevice = nullptr;
+
+		GW_ERROR(VlkSurface->GetGraphicsQueue((void**)&GraphicsQueue));
+		GW_ERROR(VlkSurface->GetCommandPool((void**)&CommandPool));
+		GW_ERROR(VlkSurface->GetPhysicalDevice((void**)&PhysicalDevice));
+
+		// Temp vars for KTX
+		ktxTexture* KTexture = nullptr;
+		ktxVulkanDeviceInfo VulkanDeviceInfo;
+
+		// Used to transfer texture from CPU memory to GPU
+		KTX_ERROR(ktxVulkanDeviceInfo_Construct(&VulkanDeviceInfo, PhysicalDevice, *Device,
+			GraphicsQueue, CommandPool, nullptr));
+
+		// Load texture into CPU memory from file
+		KTX_ERROR(ktxTexture_CreateFromNamedFile(filePath,
+			KTX_TEXTURE_CREATE_NO_FLAGS, &KTexture));
+
+		// This gets mad if you don't encode/save the .ktx file in a format Vulkan likes
+		KTX_ERROR(ktxTexture_VkUploadEx(KTexture, &VulkanDeviceInfo, &outTexture.Texture,
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_SAMPLED_BIT,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL));
+
+
+		// after loading all textures you don't need these anymore
+		ktxTexture_Destroy(KTexture);
+		ktxVulkanDeviceInfo_Destruct(&VulkanDeviceInfo);
+	}
 
 	GW::MATH::GMATRIXF GetViewMatrix()
 	{
@@ -317,6 +355,11 @@ public:
 	void SetViewMatrix(GW::MATH::GMATRIXF& mat)
 	{
 		ShaderSceneData->View = reinterpret_cast<Matrix4D&>(mat.data);
+	}
+
+	void UpdateCameraWorldPosition(GW::MATH::GVECTORF& mat)
+	{
+		ShaderSceneData->CameraWorldPosition = reinterpret_cast<Vector4D&>(mat);
 	}
 
 	/*--------------------------------------------------DEBUG-------------------------------------------------------*/
@@ -346,24 +389,24 @@ private:
 		VkResult VResult;
 		for (uint32 i = 0; i < numBuffers; ++i)
 		{
-			VK_ASSERT(GvkHelper::create_buffer(PhysicalDevice, *Device, bufferSize,
+			VK_ERROR(GvkHelper::create_buffer(PhysicalDevice, *Device, bufferSize,
 				VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
 				VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &bufferHandles[i], &bufferDatas[i]));
 
-			VK_ASSERT(GvkHelper::write_to_buffer(*Device, bufferDatas[i], data, bufferSize));
+			VK_ERROR(GvkHelper::write_to_buffer(*Device, bufferDatas[i], data, bufferSize));
 		}
 	}
 
-	void CreateDescriptorSetLayouts(uint32 numOfLayouts, VkDescriptorSetLayout* descSetLayout)
+	void CreateDescriptorSetLayouts(uint32 numOfLayouts, VkDescriptorSetLayout* descSetLayout, VkDescriptorType descType, VkShaderStageFlags shaderStageFlags)
 	{
 		VkDescriptorSetLayoutBinding* DescSetLayoutBinding = new VkDescriptorSetLayoutBinding[numOfLayouts];
 
 		for (uint32 i = 0; i < numOfLayouts; ++i)
 		{
 			DescSetLayoutBinding[i].binding = i;
-			DescSetLayoutBinding[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			DescSetLayoutBinding[i].descriptorType = descType;
 			DescSetLayoutBinding[i].descriptorCount = 1;
-			DescSetLayoutBinding[i].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+			DescSetLayoutBinding[i].stageFlags = shaderStageFlags;
 			DescSetLayoutBinding[i].pImmutableSamplers = nullptr;
 		}
 
@@ -376,7 +419,7 @@ private:
 		DescSetLayoutCreateInfo.pBindings = DescSetLayoutBinding;
 
 		// Create the descriptor
-		VK_ASSERT(vkCreateDescriptorSetLayout(*Device, &DescSetLayoutCreateInfo, nullptr, descSetLayout));
+		VK_ERROR(vkCreateDescriptorSetLayout(*Device, &DescSetLayoutCreateInfo, nullptr, descSetLayout));
 
 		delete[] DescSetLayoutBinding;
 	}
@@ -390,7 +433,7 @@ private:
 		DescSetAllocateInfo.descriptorSetCount = 1;
 		DescSetAllocateInfo.pSetLayouts = descSetLayout;
 
-		VK_ASSERT(vkAllocateDescriptorSets(*Device, &DescSetAllocateInfo, descSet));
+		VK_ERROR(vkAllocateDescriptorSets(*Device, &DescSetAllocateInfo, descSet));
 	}
 
 	void LinkDescriptorSetToBuffer(uint32 bindingNum, uint64 sizeOfBuffer, VkDescriptorSet* descSet, VkBuffer* bufferHandle)
@@ -415,4 +458,199 @@ private:
 		// Link 
 		vkUpdateDescriptorSets(*Device, 1, &DescWriteSets, 0, nullptr);
 	}
+
+	void LinkDescriptorSetToImageBuffer(const uint32 bindingNum, VkDescriptorSet* descSet, const Texture* texture)
+	{
+		VkWriteDescriptorSet WriteDescSet = { };
+		WriteDescSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		WriteDescSet.descriptorCount = 1;
+		WriteDescSet.dstArrayElement = 0;
+		WriteDescSet.dstBinding = 0;
+		WriteDescSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		WriteDescSet.dstSet = *descSet;
+		VkDescriptorImageInfo DescriptorImageInfo = { texture->Sampler, texture->View, texture->Texture.imageLayout };
+		WriteDescSet.pImageInfo = &DescriptorImageInfo;
+
+		vkUpdateDescriptorSets(*Device, 1, &WriteDescSet, 0, nullptr);
+	}
+
+	void CreateDefaultSampler(const uint32 maxLod, VkSampler& outSampler)
+	{
+		VkSamplerCreateInfo SamplerCreateInfo = {};
+		SamplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		SamplerCreateInfo.flags = 0;
+		SamplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER; // repeat if common
+		SamplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER; // repeat if common
+		SamplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER; // repeat if common
+		SamplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+		SamplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+		SamplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		SamplerCreateInfo.mipLodBias = 0;
+		SamplerCreateInfo.minLod = 0;
+		SamplerCreateInfo.maxLod = maxLod;
+		SamplerCreateInfo.anisotropyEnable = VK_FALSE;
+		SamplerCreateInfo.maxAnisotropy = 1.0;
+		SamplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+		SamplerCreateInfo.compareEnable = VK_FALSE;
+		SamplerCreateInfo.compareOp = VK_COMPARE_OP_LESS;
+		SamplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
+		SamplerCreateInfo.pNext = nullptr;
+
+		VK_ERROR(vkCreateSampler(*Device, &SamplerCreateInfo, nullptr, &outSampler));
+	}
+
+	void CreateDefaultImageViewFromTexture(Texture* inTexture, VkImageView& outView)
+	{
+		VkImageViewCreateInfo ImageViewCreateInfo = {};
+		// set the non-default values.
+		ImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		ImageViewCreateInfo.flags = 0;
+		ImageViewCreateInfo.components =
+		{
+			VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G,
+			VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A
+		};
+		ImageViewCreateInfo.image = inTexture->Texture.image;
+		ImageViewCreateInfo.format = inTexture->Texture.imageFormat;
+		ImageViewCreateInfo.viewType = inTexture->Texture.viewType;
+		ImageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		ImageViewCreateInfo.subresourceRange.layerCount = inTexture->Texture.layerCount;
+		ImageViewCreateInfo.subresourceRange.levelCount = inTexture->Texture.levelCount;
+		ImageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+		ImageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+		ImageViewCreateInfo.pNext = nullptr;
+
+		VK_ERROR(vkCreateImageView(*Device, &ImageViewCreateInfo, nullptr, &outView));
+	}
+
+	void SetupGlobalSceneDataVars(std::vector<RawMeshData>& rawData, std::vector<StaticMesh>& outStaticMeshes)
+	{
+		/* Load Global Stuff */
+		GW::MATH::GMatrix Matrix;
+		Matrix.Create();
+
+		GW::MATH::GMATRIXF View;
+		GW::MATH::GMATRIXF Projection;
+		Matrix.IdentityF(View);
+
+		bool HasCamera = false;
+		for (uint32 i = 0; i < rawData.size(); ++i)
+		{
+			if (rawData[i].IsCamera)
+			{
+				HasCamera = true;
+				Matrix.InverseF(reinterpret_cast<GW::MATH::GMATRIXF&>(rawData[i].WorldMatrices[0]), View);
+			}
+		}
+		if (!HasCamera)
+		{
+			GW::MATH::GVECTORF Eye = { 0.0f, 10.0f, 0.0f, 1.0f };
+			GW::MATH::GVECTORF Target = { 0.0f, -25.0f, 0.0f, 1.0f };
+			GW::MATH::GVECTORF Up = { 0.0f, 1.0f, 0.0f, 0.0f };
+			Matrix.LookAtLHF(Eye, Target, Up, View);
+		}
+
+		Matrix.IdentityF(Projection);
+		float AspectRatio = 0.0f;
+		VlkSurface->GetAspectRatio(AspectRatio);
+		float FOV = Math::DegreesToRadians(65.0f);
+		float NearZ = 0.1f;
+		float FarZ = 1000.0f;
+		Matrix.ProjectionDirectXLHF(FOV, AspectRatio, NearZ, FarZ, Projection);
+
+		ShaderSceneData->View = reinterpret_cast<Matrix4D&>(View);
+		ShaderSceneData->Projection = reinterpret_cast<Matrix4D&>(Projection);
+
+		Vector3D DirLight(0.0f, -0.6899f, -0.7239f);
+		//DirLight.Normalize();
+		ShaderSceneData->DirectionalLightDirection = Vector4D(DirLight, 0.0f);
+		ShaderSceneData->SunAmbient = Vector4D(0.25f, 0.25f, 0.35f, 1.0f);
+		ShaderSceneData->DirectionalLightColor = Vector4D(0.9f, 0.9f, 1.0f, 1.0f);
+
+		StaticMesh TempStaticMesh;
+		Mesh TempMesh;
+		uint32 IndexOffset = 0;
+		uint32 VertexOffset = 0;
+		uint32 MaterialOffset = 0;
+		uint32 WorldMatricesOffset = 0;
+		uint32 StaticMeshIndex = 0;
+
+		ShaderSceneData->NumOfLights = 0;
+		PointLight PLight;
+
+		/* Load the Materices and Materials */
+		for (uint32 i = 0; i < rawData.size(); i++)
+		{
+			if (rawData[i].IsCamera)
+			{
+				continue;
+			}
+
+			if (rawData[i].IsLight)
+			{
+				PLight.Position = rawData[i].WorldMatrices[0][3];
+				PLight.AddStrength(20.0f);
+
+				PLight.Color = Vector4D(0.0f, 1.0f, 1.0f, 1.0f);
+				PLight.SetRadius(100.0f);
+
+				ShaderSceneData->Lights[static_cast<uint32>(ShaderSceneData->NumOfLights.X)] = PLight;
+				ShaderSceneData->NumOfLights.X += 1.0f;
+				continue;
+			}
+
+			TempStaticMesh.VertexCount = rawData[i].VertexCount;
+			TempStaticMesh.IndexCount = rawData[i].IndexCount;
+			TempStaticMesh.MaterialCount = rawData[i].MaterialCount;
+			TempStaticMesh.MeshCount = rawData[i].MeshCount;
+			TempStaticMesh.InstanceCount = rawData[i].InstanceCount;
+
+			TempStaticMesh.VertexOffset = VertexOffset;
+			TempStaticMesh.IndexOffset = IndexOffset;
+			TempStaticMesh.MaterialIndex = MaterialOffset;
+			TempStaticMesh.WorldMatrixIndex = WorldMatricesOffset;
+
+			outStaticMeshes.push_back(TempStaticMesh);
+
+			for (uint32 j = 0; j < rawData[i].MeshCount; ++j)
+			{
+				TempMesh.IndexCount = rawData[i].Meshes[j].drawInfo.indexCount;
+				TempMesh.IndexOffset = rawData[i].Meshes[j].drawInfo.indexOffset;
+				TempMesh.Name = rawData[i].Meshes[j].name;
+				TempMesh.MaterialIndex = rawData[i].Meshes[j].materialIndex;
+
+				outStaticMeshes[StaticMeshIndex].Meshes.push_back(TempMesh);
+			}
+
+			for (uint32 j = 0; j < rawData[i].WorldMatrices.size(); ++j)
+			{
+				ShaderSceneData->WorldMatrices[j + WorldMatricesOffset] = rawData[i].WorldMatrices[j];
+			}
+
+			for (uint32 j = 0; j < rawData[i].MaterialCount; ++j)
+			{
+				Material Mat;
+				Mat.Diffuse = reinterpret_cast<Vector3D&>(rawData[i].Materials[j].attrib.Kd);
+				Mat.Dissolve = rawData[i].Materials[j].attrib.d;
+				Mat.SpecularColor = reinterpret_cast<Vector3D&>(rawData[i].Materials[j].attrib.Ks);
+				Mat.SpecularExponent = rawData[i].Materials[j].attrib.Ns;
+				Mat.Ambient = reinterpret_cast<Vector3D&>(rawData[i].Materials[j].attrib.Ka);
+				Mat.Sharpness = rawData[i].Materials[j].attrib.sharpness;
+				Mat.TransmissionFilter = reinterpret_cast<Vector3D&>(rawData[i].Materials[j].attrib.Tf);
+				Mat.OpticalDensity = rawData[i].Materials[j].attrib.Ni;
+				Mat.Emissive = reinterpret_cast<Vector3D&>(rawData[i].Materials[j].attrib.Ke);
+				Mat.IlluminationModel = rawData[i].Materials[j].attrib.illum;
+
+				ShaderSceneData->Materials[j + MaterialOffset] = Mat;
+			}
+
+			IndexOffset += rawData[i].IndexCount;
+			VertexOffset += rawData[i].VertexCount;
+			MaterialOffset += rawData[i].MaterialCount;
+			WorldMatricesOffset += rawData[i].WorldMatrices.size();
+
+			StaticMeshIndex++;
+		}
+	}
+
 };

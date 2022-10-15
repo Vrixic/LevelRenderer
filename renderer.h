@@ -21,17 +21,11 @@ class Renderer
 	GW::SYSTEM::GWindow win;
 	GW::GRAPHICS::GVulkanSurface vlk;
 	GW::CORE::GEventReceiver shutdown;
-	// TODO: Part 4a
 	GW::INPUT::GInput Input;
 	GW::INPUT::GController Controller;
 
 	float TimePassed;
-	// TODO: Part 2a
 	GW::MATH::GMatrix Matrix;
-	//GW::MATH::GMATRIXF GridWorldMatrices[6];
-	// TODO: Part 3d
-	// TODO: Part 2e
-	// TODO: Part 3a
 	//GW::MATH::GMATRIXF ViewProjectionMatrix;
 	// what we need at a minimum to draw a triangle
 	VkDevice device = nullptr;
@@ -42,20 +36,10 @@ class Renderer
 	// pipeline settings for drawing (also required)
 	VkPipeline pipeline = nullptr;
 	VkPipelineLayout pipelineLayout = nullptr;
+
+	bool CaptureInput = true;
+	float CameraSpeed = 5.0f;
 public:
-	// TODO: Part 1c -> Vertex struct
-	//struct Vertex
-	//{
-	//	float Position[4];
-	//};
-	// TODO: Part 2b -> ShaderVariables struct 
-	//struct ShaderVars
-	//{
-	//	GW::MATH::GMATRIXF World;
-	//	GW::MATH::GMATRIXF View;
-	//};
-	// TODO: Part 2f
-	//GW::MATH::GMATRIXF GridViewMatrix;
 
 	Level* World;
 	std::vector<StaticMesh> StaticMeshes;
@@ -77,52 +61,6 @@ public:
 
 		// TODO: Part 2a -> Create world matrix 
 		Matrix.Create(); // Create/enable proxy 
-		//for (int i = 0; i < 6; ++i)
-		//{
-		//	GMatrix::IdentityF(GridWorldMatrices[i]);
-		//}
-
-		//GVECTORF TranslateVector;
-		//TranslateVector.x = 0.0f;
-		//TranslateVector.y = -0.5f;
-		//TranslateVector.z = 0.0f;
-		//TranslateVector.w = 0.0f;
-
-		//Matrix.TranslateLocalF(GridWorldMatrices[0], TranslateVector, GridWorldMatrices[0]);
-		//Matrix.RotateXLocalF(GridWorldMatrices[0], Math::DegreesToRadians(90.0f), GridWorldMatrices[0]);
-
-		//// TODO: Part 3d
-		//// Ceil
-		//TranslateVector.y = 0.5f;
-		//Matrix.TranslateLocalF(GridWorldMatrices[1], TranslateVector, GridWorldMatrices[1]);
-		//Matrix.RotateXLocalF(GridWorldMatrices[1], Math::DegreesToRadians(90.0f), GridWorldMatrices[1]);
-
-		//// Walls
-		//TranslateVector.y = 0.0f;
-
-		//TranslateVector.z = 0.5f;
-		//Matrix.TranslateLocalF(GridWorldMatrices[2], TranslateVector, GridWorldMatrices[2]);
-
-		//TranslateVector.z = -0.5f;
-		//Matrix.TranslateLocalF(GridWorldMatrices[3], TranslateVector, GridWorldMatrices[3]);
-
-		//TranslateVector.z = 0.0f;
-
-		//TranslateVector.x = 0.5f;
-		//Matrix.TranslateLocalF(GridWorldMatrices[4], TranslateVector, GridWorldMatrices[4]);
-		//Matrix.RotateYLocalF(GridWorldMatrices[4], Math::DegreesToRadians(90.0f), GridWorldMatrices[4]);
-
-		//TranslateVector.x = -0.5f;
-		//Matrix.TranslateLocalF(GridWorldMatrices[5], TranslateVector, GridWorldMatrices[5]);
-		//Matrix.RotateYLocalF(GridWorldMatrices[5], Math::DegreesToRadians(90.0f), GridWorldMatrices[5]);
-
-		//// TODO: Part 2e -> Create the view matrix
-		//Matrix.IdentityF(GridViewMatrix);
-		//GVECTORF Eye = { 0.25, -0.125, -0.25, 1.0 };
-		//GVECTORF At = { 0.0, -0.5, 0.0, 1.0 };
-		//GVECTORF Up = { 0.0, 1.0, 0.0, 1.0 };
-
-		//Matrix.LookAtLHF(Eye, At, Up, GridViewMatrix);
 
 		/***************** GEOMETRY INTIALIZATION ******************/
 		// Grab the device & physical device so we can allocate some stuff
@@ -130,39 +68,7 @@ public:
 		vlk.GetDevice((void**)&device);
 		vlk.GetPhysicalDevice((void**)&physicalDevice);
 
-		World = new Level(&device, &vlk, &pipelineLayout, "Vrixic", "../GameLevel.txt");
-
-		// Create Vertex Buffer
-		/*Vertex verts[104] = { 0 };
-
-		float VertX = 0.5f;
-		float VertY = 0.5f;
-		float VertZ = 0.0f;
-		float VertW = 1.0f;
-
-		for (int i = 0; i < 104; i += 2)
-		{
-			if (i < 52)
-			{
-				float VertYSub = i / 50.0f;
-
-				verts[i] = { {VertX, VertY - VertYSub, VertZ, VertW} };
-				verts[i + 1] = { {-VertX, VertY - VertYSub, VertZ, VertW} };
-			}
-			else
-			{
-				float VertXSub = (i - 52.0f) / 50.0f;
-
-				verts[i] = { {VertX - VertXSub, VertY, VertZ, VertW} };
-				verts[i + 1] = { {VertX - VertXSub, -VertY, VertZ, VertW} };
-			}
-		}*/
-
-		// Transfer triangle data to the vertex buffer. (staging would be prefered here)
-		/*GvkHelper::create_buffer(physicalDevice, device, sizeof(verts),
-			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &vertexHandle, &vertexData);
-		GvkHelper::write_to_buffer(device, vertexData, verts, sizeof(verts));*/
+		World = new Level(&device, &vlk, &pipelineLayout, "Vrixic", "../Levels/TestLevel_Instancing.txt");
 
 		/***************** SHADER INTIALIZATION ******************/
 		// Intialize runtime shader compiler HLSL -> SPIRV
@@ -221,22 +127,28 @@ public:
 		assembly_create_info.primitiveRestartEnable = false;
 		// Vertex Input State
 		// TODO: Part 1c
-		VkVertexInputBindingDescription vertex_binding_description = {};
-		vertex_binding_description.binding = 0;
-		vertex_binding_description.stride = sizeof(Vertex);
-		vertex_binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		VkVertexInputBindingDescription vertex_binding_description[2] = {};
+		vertex_binding_description[0].binding = 0;
+		vertex_binding_description[0].stride = sizeof(Vertex);
+		vertex_binding_description[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+		vertex_binding_description[1].binding = 1;
+		vertex_binding_description[1].stride = sizeof(uint32);
+		vertex_binding_description[1].inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
 		// TODO: Part 1c
-		VkVertexInputAttributeDescription vertex_attribute_description[4] = {
+		VkVertexInputAttributeDescription vertex_attribute_description[5] = {
 			{ 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 },
 			{ 1, 0, VK_FORMAT_R32G32B32_SFLOAT, 8 },
 			{ 2, 0, VK_FORMAT_R32G32B32_SFLOAT, 20 },
-			{ 3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 32 }
+			{ 3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 32 },
+
+			{ 4, 0, VK_FORMAT_R32_UINT, 0 }
 		};
 		VkPipelineVertexInputStateCreateInfo input_vertex_info = {};
 		input_vertex_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		input_vertex_info.vertexBindingDescriptionCount = 1;
-		input_vertex_info.pVertexBindingDescriptions = &vertex_binding_description;
-		input_vertex_info.vertexAttributeDescriptionCount = 4;
+		input_vertex_info.vertexBindingDescriptionCount = 2;
+		input_vertex_info.pVertexBindingDescriptions = vertex_binding_description;
+		input_vertex_info.vertexAttributeDescriptionCount = 5;
 		input_vertex_info.pVertexAttributeDescriptions = vertex_attribute_description;
 		// Viewport State (we still need to set this up even though we will overwrite the values)
 		VkViewport viewport = {
@@ -404,36 +316,24 @@ public:
 		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
 		/* Draw Floating Island*/
 		ConstantBuffer Buffer;
-		//Buffer.MeshID = StaticMeshes[1].WorldMatrixIndex;
-		//Buffer.MaterialID = StaticMeshes[1].MaterialIndex;
-		//
-		//vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
-		//	VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ConstantBuffer), &Buffer);
-		//vkCmdDrawIndexed(commandBuffer,
-		//	StaticMeshes[1].IndexCount,
-		//	StaticMeshes[1].InstanceCount, 
-		//	StaticMeshes[1].IndexOffset,
-		//	StaticMeshes[1].VertexOffset, 0);
-		//
-		//Buffer.MeshID = StaticMeshes[8].WorldMatrixIndex;
-		//Buffer.MaterialID = StaticMeshes[8].MaterialIndex;
-		//
-		//vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
-		//	VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ConstantBuffer), &Buffer);
-		//vkCmdDrawIndexed(commandBuffer,
-		//	StaticMeshes[8].IndexCount,
-		//	StaticMeshes[8].InstanceCount, 
-		//	StaticMeshes[8].IndexOffset,
-		//	StaticMeshes[8].VertexOffset, 0);
 
 		for (uint32 i = 0; i < StaticMeshes.size(); ++i)
 		{
 			Buffer.MeshID = StaticMeshes[i].WorldMatrixIndex;
+			//Buffer.MaterialID = StaticMeshes[i].MaterialIndex;
+			
+			//vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
+			//	VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ConstantBuffer), &Buffer);
+			//vkCmdDrawIndexed(commandBuffer,
+			//	StaticMeshes[i].IndexCount,
+			//	StaticMeshes[i].InstanceCount,
+			//	StaticMeshes[i].IndexOffset,
+			//	StaticMeshes[i].VertexOffset, 0);
 
 			for (uint32 j = 0; j < StaticMeshes[i].MeshCount; ++j)
 			{
 				Buffer.MaterialID = StaticMeshes[i].MaterialIndex + StaticMeshes[i].Meshes[j].MaterialIndex;
-
+			
 				vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
 					VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ConstantBuffer), &Buffer);
 				vkCmdDrawIndexed(commandBuffer,
@@ -444,28 +344,6 @@ public:
 			}
 		}
 		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
-
-		// TODO: Part 3b -> View projection matrix 
-		//GW::MATH::GMatrix::MultiplyMatrixF(GridViewMatrix, ProjectionMatrix, ViewProjectionMatrix);
-		// TODO: Part 2b -> Shader constant buffer instance
-		//ShaderVars ConstantBuffer;
-		//ConstantBuffer.World = GridWorldMatrices[0];
-		// TODO: Part 2f, Part 3b
-		//ConstantBuffer.View = ViewProjectionMatrix;
-		// TODO: Part 2d -> Pushing/Sending shader constant buffer from cpu to gpu
-		//vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShaderVars), &ConstantBuffer);
-		// now we can draw
-		//VkDeviceSize offsets[] = { 0 };
-		//vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexHandle, offsets);
-		//vkCmdDraw(commandBuffer, 104, 1, 0, 0); // TODO: Part 1b // TODO: Part 1c
-		// TODO: Part 3e
-		/*for (int i = 1; i < 6; ++i)
-		{
-			ConstantBuffer.World = GridWorldMatrices[i];
-			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShaderVars), &ConstantBuffer);
-			vkCmdDraw(commandBuffer, 104, 1, 0, 0);
-
-		}*/
 	}
 	// TODO: Part 4b
 	void UpdateCamera()
@@ -478,7 +356,10 @@ public:
 		float WKeyState, SKeyState = 0, AKeyState = 0, DKeyState = 0, SpaceKeyState = 0, LeftShiftKeyState = 0;
 		float MouseDeltaX = 0, MouseDeltaY = 0;
 		unsigned int ScreenHeight = 0, ScreenWidth = 0;
-		float CameraRotationSpeed = 10.0f;
+		float FKeyState = 0;
+		float CameraRotationSpeed = 50.0f;
+
+		float MouseScrollUp = 0, MouseScrollDown = 0;
 
 		// Get Screen Width/Height
 		win.GetWidth(ScreenWidth);
@@ -492,12 +373,38 @@ public:
 		Input.GetState(G_KEY_A, AKeyState);
 		Input.GetState(G_KEY_S, SKeyState);
 		Input.GetState(G_KEY_D, DKeyState);
+		Input.GetState(G_KEY_F, FKeyState);
+
+		if (FKeyState > 0)
+		{
+			CaptureInput = !CaptureInput;
+		}
+
+		if (!CaptureInput)
+		{
+			return;
+		}
 
 		if (Input.GetMouseDelta(MouseDeltaX, MouseDeltaY) != GW::GReturn::SUCCESS)
 		{
 			MouseDeltaX = 0;
 			MouseDeltaY = 0;
 		};
+
+		
+		{
+			if (Input.GetState(G_MOUSE_SCROLL_UP, MouseScrollUp) != GW::GReturn::SUCCESS)
+			{
+				MouseScrollUp = 0;
+			}
+			if (Input.GetState(G_MOUSE_SCROLL_DOWN, MouseScrollDown) != GW::GReturn::SUCCESS)
+			{
+				MouseScrollDown = 0;
+			}
+
+			CameraSpeed += MouseScrollUp - MouseScrollDown;
+			CameraSpeed = Math::Clamp(CameraSpeed, 100.0f, 0.2f);
+		}
 
 		Controller.GetState(0, G_RIGHT_TRIGGER_AXIS, RightTriggerState);
 		Controller.GetState(0, G_LEFT_TRIGGER_AXIS, LeftTriggerState);
@@ -518,7 +425,6 @@ public:
 		float TotalYaw = (Math::DegreesToRadians(65.0f) * MouseDeltaX / ScreenWidth + RightStickXAxis * ThumbSpeed) * CameraRotationSpeed;
 
 		// Camera Variables
-		const float CameraSpeed = 10.0f;
 		float PerFrameSpeed = TimePassed * CameraSpeed;
 
 		// TODO: Part 4c
@@ -539,6 +445,9 @@ public:
 		CameraTranslateVector.z = DeltaZ * PerFrameSpeed;
 		Matrix.TranslateLocalF(CameraTranslationMatrix, CameraTranslateVector, CameraTranslationMatrix);
 		Matrix.MultiplyMatrixF(CameraTranslationMatrix, GridViewMatrix, GridViewMatrix);
+		
+		World->UpdateCameraWorldPosition(GridViewMatrix.row4);
+		
 		// TODO: Part 4f -> Pitch Rotation 
 		GMATRIXF PitchMatrix;
 		Matrix.IdentityF(PitchMatrix);
@@ -551,6 +460,7 @@ public:
 		GVECTORF CameraPosition = GridViewMatrix.row4;
 		Matrix.MultiplyMatrixF(GridViewMatrix, YawMatrix, GridViewMatrix);
 		GridViewMatrix.row4 = CameraPosition;
+		
 
 		// TODO: Part 4c
 		Matrix.InverseF(GridViewMatrix, GridViewMatrix);
@@ -568,8 +478,6 @@ private:
 		// wait till everything has completed
 		vkDeviceWaitIdle(device);
 		// Release allocated buffers, shaders & pipeline
-		//vkDestroyBuffer(device, vertexHandle, nullptr);
-		//vkFreeMemory(device, vertexData, nullptr);
 		vkDestroyShaderModule(device, vertexShader, nullptr);
 		vkDestroyShaderModule(device, pixelShader, nullptr);
 		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
