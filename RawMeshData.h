@@ -85,7 +85,7 @@ struct Mesh
 
 	uint32 MaterialIndex;
 
-	uint32 DiffuseTextureIndex;
+	int32 DiffuseTextureIndex;
 
 	Mesh()
 	{

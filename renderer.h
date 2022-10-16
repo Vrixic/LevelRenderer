@@ -7,6 +7,7 @@
 #include "Math/Matrix4D.h"
 #include "FileHelper.h"
 #include "Level.h"
+#include "StaticMesh.h"
 
 struct ConstantBuffer
 {
@@ -132,9 +133,9 @@ public:
 		vertex_binding_description[0].stride = sizeof(Vertex);
 		vertex_binding_description[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-		vertex_binding_description[1].binding = 1;
-		vertex_binding_description[1].stride = sizeof(uint32);
-		vertex_binding_description[1].inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
+		//vertex_binding_description[1].binding = 1;
+		//vertex_binding_description[1].stride = sizeof(uint32);
+		//vertex_binding_description[1].inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
 		// TODO: Part 1c
 		VkVertexInputAttributeDescription vertex_attribute_description[5] = {
 			{ 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 },
@@ -142,13 +143,13 @@ public:
 			{ 2, 0, VK_FORMAT_R32G32B32_SFLOAT, 20 },
 			{ 3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 32 },
 
-			{ 4, 0, VK_FORMAT_R32_UINT, 0 }
+			//{ 4, 0, VK_FORMAT_R32_UINT, 0 }
 		};
 		VkPipelineVertexInputStateCreateInfo input_vertex_info = {};
 		input_vertex_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		input_vertex_info.vertexBindingDescriptionCount = 2;
+		input_vertex_info.vertexBindingDescriptionCount = 1;
 		input_vertex_info.pVertexBindingDescriptions = vertex_binding_description;
-		input_vertex_info.vertexAttributeDescriptionCount = 5;
+		input_vertex_info.vertexAttributeDescriptionCount = 4;
 		input_vertex_info.pVertexAttributeDescriptions = vertex_attribute_description;
 		// Viewport State (we still need to set this up even though we will overwrite the values)
 		VkViewport viewport = {
@@ -311,6 +312,7 @@ public:
 		vlk.GetAspectRatio(AspectRatio);
 		GW::MATH::GMatrix::ProjectionDirectXLHF(FOV, AspectRatio, NearPlane, FarPlane, ProjectionMatrix);
 
+		World->SetProjectionMatrix(ProjectionMatrix);
 		World->Bind();
 
 		/*--------------------------------------------------DEBUG-------------------------------------------------------*/

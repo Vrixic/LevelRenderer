@@ -33,8 +33,6 @@
 	}	
 #endif // DEBUG
 
-
-
 #define MAX_SUBMESH_PER_DRAW 512
 #define MAX_LIGHTS_PER_DRAW 16
 
@@ -157,6 +155,8 @@ public:
 		{
 			vkDestroyImageView(*Device, Textures[i].View, nullptr);
 			vkDestroySampler(*Device, Textures[i].Sampler, nullptr);
+			vkDestroyImage(*Device, Textures[i].Texture.image, nullptr);
+			vkFreeMemory(*Device, Textures[i].Texture.deviceMemory, nullptr);
 		}
 		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
 
@@ -381,6 +381,11 @@ public:
 	void UpdateCameraWorldPosition(GW::MATH::GVECTORF& mat)
 	{
 		ShaderSceneData->CameraWorldPosition = reinterpret_cast<Vector4D&>(mat);
+	}
+
+	void SetProjectionMatrix(GW::MATH::GMATRIXF& mat)
+	{
+		ShaderSceneData->Projection = reinterpret_cast<Matrix4D&>(mat.data);
 	}
 
 	/*--------------------------------------------------DEBUG-------------------------------------------------------*/
@@ -762,5 +767,4 @@ private:
 			CreateDefaultImageViewFromTexture(&Textures[i], Textures[i].View);
 		}
 	}
-
 };

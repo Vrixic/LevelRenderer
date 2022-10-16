@@ -3,8 +3,6 @@
 
 [[vk::binding(0, 1)]]
 Texture2D DiffuseMap : register(t1);
-[[vk::binding(0, 2)]]
-Texture2D RoughnessMap : register(t2);
 [[vk::binding(0, 1)]]
 SamplerState Sampler : register(s1);
 

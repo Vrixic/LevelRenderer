@@ -22,13 +22,14 @@ int main()
 		msgs.Create([&](const GW::GEvent& e) {
 			GW::SYSTEM::GWindow::Events q;
 			if (+e.Read(q) && q == GWindow::Events::RESIZE)
-				clrAndDepth[0].color.float32[2] += 0.01f; // disable
+				//clrAndDepth[0].color.float32[2] += 0.01f; // disable
+				std::cout << "\n[GWindow]: resized";
 			});
 		win.Register(msgs);
 #ifndef NDEBUG
 		const char* debugLayers[] = {
-			//"VK_LAYER_KHRONOS_validation", // standard validation layer
-			"VK_LAYER_RENDERDOC_Capture" // add this if you have installed RenderDoc
+			"VK_LAYER_KHRONOS_validation", // standard validation layer
+			//"VK_LAYER_RENDERDOC_Capture" // add this if you have installed RenderDoc
 			//"VK_LAYER_LUNARG_standard_validation", // add if not on MacOS
 		};
 		if (+vulkan.Create(win, GW::GRAPHICS::DEPTH_BUFFER_SUPPORT,
