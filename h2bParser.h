@@ -14,11 +14,16 @@ namespace H2B {
 		VECTOR pos, uvw, nrm;
 	};
 	struct alignas(void*) ATTRIBUTES {
-		VECTOR Kd; float d;
-		VECTOR Ks; float Ns;
-		VECTOR Ka; float sharpness;
-		VECTOR Tf; float Ni;
-		VECTOR Ke; unsigned illum;
+		VECTOR Kd; // diffuse
+		float d; // transparency
+		VECTOR Ks;  // specular reflectivity
+		float Ns;// specular exponent
+		VECTOR Ka; // ambient reflectivity
+		float sharpness;// local reflection map sharpness
+		VECTOR Tf; // transmission filter
+		float Ni;// optical density (index of refraction)
+		VECTOR Ke; // emissive reflectivity
+		unsigned illum;// illumination model
 	};
 	struct BATCH {
 		unsigned indexCount, indexOffset;
@@ -27,15 +32,15 @@ namespace H2B {
 	struct MATERIAL {
 		ATTRIBUTES attrib;
 		const char* name;
-		const char* map_Kd;
-		const char* map_Ks;
-		const char* map_Ka;
-		const char* map_Ke;
-		const char* map_Ns;
-		const char* map_d;
+		const char* map_Kd; // Diffuse map
+		const char* map_Ks; // roughness map
+		const char* map_Ka; // ambient map
+		const char* map_Ke; // emissive map
+		const char* map_Ns; // specular 
+		const char* map_d; // dissolve map
 		const char* disp;
 		const char* decal;
-		const char* bump;
+		const char* bump; // Normal map
 		const void* padding[2];
 	};
 	struct MESH {

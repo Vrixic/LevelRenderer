@@ -68,7 +68,7 @@ public:
 		vlk.GetDevice((void**)&device);
 		vlk.GetPhysicalDevice((void**)&physicalDevice);
 
-		World = new Level(&device, &vlk, &pipelineLayout, "Vrixic", "../Levels/TestLevel_Instancing.txt");
+		World = new Level(&device, &vlk, &pipelineLayout, "Vrixic", "../Levels/GameLevelLights.txt");
 
 		/***************** SHADER INTIALIZATION ******************/
 		// Intialize runtime shader compiler HLSL -> SPIRV
@@ -80,8 +80,8 @@ public:
 #ifndef NDEBUG
 		shaderc_compile_options_set_generate_debug_info(options);
 #endif
-		std::string VertexShaderSource = FileHelper::LoadShaderFileIntoString("../Shaders/ModelVertex.hlsl");
-		std::string PixelShaderSource = FileHelper::LoadShaderFileIntoString("../Shaders/ModelPixel.hlsl");
+		std::string VertexShaderSource = FileHelper::LoadShaderFileIntoString("../Shaders/TextureVertex.hlsl");
+		std::string PixelShaderSource = FileHelper::LoadShaderFileIntoString("../Shaders/TexturePixel.hlsl");
 
 		// Create Vertex Shader
 		shaderc_compilation_result_t result = shaderc_compile_into_spv( // compile
@@ -333,7 +333,8 @@ public:
 			for (uint32 j = 0; j < StaticMeshes[i].MeshCount; ++j)
 			{
 				Buffer.MaterialID = StaticMeshes[i].MaterialIndex + StaticMeshes[i].Meshes[j].MaterialIndex;
-			
+				World->BindTexture(StaticMeshes[i].Meshes[j].DiffuseTextureIndex == -1 ? 0 : StaticMeshes[i].Meshes[j].DiffuseTextureIndex);
+				
 				vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
 					VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ConstantBuffer), &Buffer);
 				vkCmdDrawIndexed(commandBuffer,

@@ -6,6 +6,30 @@
 
 #include "GenericDefines.h"
 
+struct RawMaterial
+{
+	H2B::ATTRIBUTES attrib;
+
+	std::string name;
+	std::string map_Kd; // Diffuse map
+	std::string map_Ks; // roughness map
+	std::string map_Ka; // ambient map
+	std::string map_Ke; // emissive map
+	std::string map_Ns; // specular 
+	std::string map_d; // dissolve map
+	std::string disp;
+	std::string decal;
+	std::string bump; // Normal map
+	const void* padding[2];
+};
+
+enum LightType
+{
+	Directional =	0,
+	Point =			1,
+	Spot =			2
+};
+
 struct RawMeshData
 {
 	std::string Name;
@@ -17,8 +41,8 @@ struct RawMeshData
 	uint32 MeshCount;
 
 	std::vector<H2B::VERTEX> Vertices;
-	std::vector<unsigned int> Indices;
-	std::vector<H2B::MATERIAL> Materials;
+	std::vector<uint32> Indices;
+	std::vector<RawMaterial> Materials;
 	std::vector<H2B::BATCH> Batches;
 	std::vector<H2B::MESH> Meshes;
 
@@ -27,6 +51,8 @@ struct RawMeshData
 
 	bool IsCamera;
 	bool IsLight;
+
+	LightType Light;
 
 	RawMeshData()
 	{
@@ -38,6 +64,8 @@ struct RawMeshData
 
 		IsCamera = false;
 		IsLight = false;
+
+		Light = LightType::Point;
 	}
 };
 
@@ -56,6 +84,17 @@ struct Mesh
 	uint32 IndexCount;
 
 	uint32 MaterialIndex;
+
+	uint32 DiffuseTextureIndex;
+
+	Mesh()
+	{
+		Name = "Unnamed";
+		IndexOffset = 0;
+		IndexCount = 0;
+		MaterialIndex = 0;
+		DiffuseTextureIndex = 0;
+	}
 };
 
 /*
@@ -96,5 +135,25 @@ struct PointLight
 	void SetRadius(float radius)
 	{
 		Color.W = radius;
+	}
+};
+
+struct SpotLight
+{
+	/* W Component - spot light strength */
+	Vector4D Position;
+
+	/* W Component - cone ratio */
+	Vector4D Color;
+	Vector4D ConeDirection;
+
+	void AddStrength(float strength)
+	{
+		Position.W += strength;
+	}
+
+	void SetConeRatio(float ratio)
+	{
+		Color.W = ratio;
 	}
 };

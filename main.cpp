@@ -17,7 +17,7 @@ int main()
 		// TODO: Part 1a
 		win.SetWindowName("Vrij Patel + Level Renderer Project - Vulkan");
 		VkClearValue clrAndDepth[2];
-		clrAndDepth[0].color = { {0.05f, 0.05f, 0.05f, 1} }; // TODO: Part 1a
+		clrAndDepth[0].color = { {0.25f, 0.25f, 0.25f, 1} }; // TODO: Part 1a
 		clrAndDepth[1].depthStencil = { 1.0f, 0u };
 		msgs.Create([&](const GW::GEvent& e) {
 			GW::SYSTEM::GWindow::Events q;

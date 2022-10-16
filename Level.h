@@ -8,6 +8,8 @@
 #include <ktxvulkan.h>
 #include <ktx.h>
 
+#define DEBUG 1
+
 #if DEBUG
 #define VK_ERROR(r)											\
 	if (r != VK_SUCCESS)										\
@@ -41,9 +43,6 @@ struct Texture
 	VkSampler Sampler;
 	ktxVulkanTexture Texture;
 	VkImageView View;
-	uint32 Width, Height;
-	uint32 MipLevels;
-
 	VkDescriptorSet DescSet;
 };
 
@@ -61,11 +60,14 @@ struct SceneData
 
 	Matrix4D WorldMatrices[MAX_SUBMESH_PER_DRAW];
 	Material Materials[MAX_SUBMESH_PER_DRAW];
-	
-	PointLight Lights[MAX_LIGHTS_PER_DRAW];
+
+	PointLight PointLights[MAX_LIGHTS_PER_DRAW];
+
+	SpotLight SpotLights[MAX_LIGHTS_PER_DRAW];
 
 	/* 16-byte padding for the lights,
-	* X component -> num of lights
+	* X component -> num of point lights
+	* Y component -> num of spot lights
 	*/
 	Vector4D NumOfLights;
 };
@@ -108,9 +110,9 @@ private:
 
 	uint64 SceneDataSizeInBytes;
 
-	/*--------------------------------------------------DEBUG-------------------------------------------------------*/
-	Texture Texture_Test;
-	/*--------------------------------------------------DEBUG-------------------------------------------------------*/
+	/*--------------------------------------------------TESTING-------------------------------------------------------*/
+	std::vector<Texture> Textures;
+	/*--------------------------------------------------TESTING-------------------------------------------------------*/
 
 public:
 	Level(VkDevice* deviceHandle, GW::GRAPHICS::GVulkanSurface* vlkSurface, VkPipelineLayout* pipelineLayout, const char* name, const char* path)
@@ -149,8 +151,13 @@ public:
 
 		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
 		// Destory the texture
-		vkDestroyImageView(*Device, Texture_Test.View, nullptr);
-		vkDestroySampler(*Device, Texture_Test.Sampler, nullptr);
+		//vkDestroyImageView(*Device, Texture_Test.View, nullptr);
+		//vkDestroySampler(*Device, Texture_Test.Sampler, nullptr);
+		for (uint32 i = 0; i < Textures.size(); ++i)
+		{
+			vkDestroyImageView(*Device, Textures[i].View, nullptr);
+			vkDestroySampler(*Device, Textures[i].Sampler, nullptr);
+		}
 		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
 
 		if (WorldData != nullptr)
@@ -159,7 +166,6 @@ public:
 		}
 
 		delete ShaderSceneData;
-
 	}
 
 public:
@@ -182,10 +188,19 @@ public:
 			/* Bind Shader data desc set*/
 			GvkHelper::write_to_buffer(*Device, ShaderStorageDatas[CurrentBuffer], ShaderSceneData, SceneDataSizeInBytes);
 			vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *PipelineLayout, 0, 1, &ShaderStorageDescSets[CurrentBuffer], 0, nullptr);
-
-			/* Bind texture desc set */
-			vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *PipelineLayout, 1, 1, &Texture_Test.DescSet, 0, nullptr);
 		}
+	}
+
+	void BindTexture(uint32 texID)
+	{
+		unsigned int CurrentBuffer;
+		VlkSurface->GetSwapchainCurrentImage(CurrentBuffer);
+
+		VkCommandBuffer CommandBuffer;
+		VlkSurface->GetCommandBuffer(CurrentBuffer, (void**)&CommandBuffer);
+
+		/* Bind texture desc set */
+		vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *PipelineLayout, 1, 1, &Textures[texID].DescSet, 0, nullptr);
 	}
 
 	/* Loads all data needed to render the level */
@@ -196,7 +211,6 @@ public:
 			std::cout << "\n[Level]: " << Name << " is already loaded in.. Failed to load!";
 			return { };
 		}
-
 
 		/* Load the file */
 		std::vector<RawMeshData> RawData;
@@ -223,10 +237,10 @@ public:
 		CreateStorageBuffers(NumOfActiveFrames, ShaderStorageHandles, ShaderStorageDatas, ShaderSceneData, SceneDataSizeInBytes);
 
 		/* Create only 1 descriptor set layout for our storage buffers */
-		CreateDescriptorSetLayouts(1, &ShaderStorageDescSetLayout, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
+		CreateDescriptorSetLayouts(1, 1, &ShaderStorageDescSetLayout, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT);
 
 		/*--------------------------------------------------TESTING-------------------------------------------------------*/
-		CreateDescriptorSetLayouts(1, &ShaderTextureDescSetLayout, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+		CreateDescriptorSetLayouts(1, 1, &ShaderTextureDescSetLayout, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
 		/*--------------------------------------------------TESTING-------------------------------------------------------*/
 
 		/* Create only one pool for our descriptor sets */
@@ -243,7 +257,7 @@ public:
 		DescPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		DescPoolCreateInfo.pNext = nullptr;
 		DescPoolCreateInfo.flags = 0;
-		DescPoolCreateInfo.maxSets = NumOfActiveFrames + 1;
+		DescPoolCreateInfo.maxSets = NumOfActiveFrames + Textures.size(); // 5 for texture sets
 		DescPoolCreateInfo.poolSizeCount = 2;
 		DescPoolCreateInfo.pPoolSizes = DescPoolSize;
 
@@ -251,27 +265,32 @@ public:
 
 		for (uint32 i = 0; i < NumOfActiveFrames; ++i)
 		{
-			AllocateDescriptorSet(1, &ShaderStorageDescSetLayout, &ShaderStorageDescSets[i], &ShaderStoragePool);
+			AllocateDescriptorSet(&ShaderStorageDescSetLayout, &ShaderStorageDescSets[i], &ShaderStoragePool);
 			LinkDescriptorSetToBuffer(0, SceneDataSizeInBytes, &ShaderStorageDescSets[i], &ShaderStorageHandles[i]);
 		}
 
 		/*--------------------------------------------------TESTING-------------------------------------------------------*/
-		LoadTexture("../Assets/Textures/Speeder/KTX/SpeederBikeForSketch_BaseColor.ktx", Texture_Test);
+		//LoadTexture("../Assets/Textures/Speeder/KTX/SpeederBikeForSketch_BaseColor.ktx", Texture_Test);
 
 		// Create the Image View and Sampler
-		CreateDefaultSampler(Texture_Test.Texture.levelCount, Texture_Test.Sampler);
+		//CreateDefaultSampler(Texture_Test.Texture.levelCount, Texture_Test.Sampler);
 
 		// Create Image View
 		// Textures are not directly accessed by the shaders and are abstracted 
 		// by Image Views containing additional information and sub resource ranges
-		CreateDefaultImageViewFromTexture(&Texture_Test, Texture_Test.View);
+		//CreateDefaultImageViewFromTexture(&Texture_Test, Texture_Test.View);
 
 		// Create a Desc set for the texture
-		AllocateDescriptorSet(1, &ShaderTextureDescSetLayout, &Texture_Test.DescSet, &ShaderStoragePool);
+		//AllocateDescriptorSet(1, &ShaderTextureDescSetLayout, &Texture_Test.DescSet, &ShaderStoragePool);
 
 		// Update the descriptor set(s) to point to the correct values
-		LinkDescriptorSetToImageBuffer(0, &Texture_Test.DescSet, &Texture_Test);
+		//LinkDescriptorSetToImageBuffer(0, &Texture_Test.DescSet, &Texture_Test);
 
+		for (uint32 i = 0; i < Textures.size(); ++i)
+		{
+			AllocateDescriptorSet(&ShaderTextureDescSetLayout, &Textures[i].DescSet, &ShaderStoragePool);
+			LinkDescriptorSetToImageBuffer(0, &Textures[i].DescSet, &Textures[i]);
+		}
 		/*--------------------------------------------------TESTING-------------------------------------------------------*/
 
 		IsDataLoaded = true;
@@ -344,6 +363,8 @@ public:
 		// after loading all textures you don't need these anymore
 		ktxTexture_Destroy(KTexture);
 		ktxVulkanDeviceInfo_Destruct(&VulkanDeviceInfo);
+
+		std::cout << "[Texture]: " << filePath << " loaded successfully...\n";
 	}
 
 	GW::MATH::GMATRIXF GetViewMatrix()
@@ -397,7 +418,7 @@ private:
 		}
 	}
 
-	void CreateDescriptorSetLayouts(uint32 numOfLayouts, VkDescriptorSetLayout* descSetLayout, VkDescriptorType descType, VkShaderStageFlags shaderStageFlags)
+	void CreateDescriptorSetLayouts(uint32 numOfLayouts, uint32 descCount, VkDescriptorSetLayout* descSetLayout, VkDescriptorType descType, VkShaderStageFlags shaderStageFlags)
 	{
 		VkDescriptorSetLayoutBinding* DescSetLayoutBinding = new VkDescriptorSetLayoutBinding[numOfLayouts];
 
@@ -405,7 +426,7 @@ private:
 		{
 			DescSetLayoutBinding[i].binding = i;
 			DescSetLayoutBinding[i].descriptorType = descType;
-			DescSetLayoutBinding[i].descriptorCount = 1;
+			DescSetLayoutBinding[i].descriptorCount = descCount;
 			DescSetLayoutBinding[i].stageFlags = shaderStageFlags;
 			DescSetLayoutBinding[i].pImmutableSamplers = nullptr;
 		}
@@ -424,7 +445,7 @@ private:
 		delete[] DescSetLayoutBinding;
 	}
 
-	void AllocateDescriptorSet(uint32 numDescriptors, VkDescriptorSetLayout* descSetLayout, VkDescriptorSet* descSet, VkDescriptorPool* descPool)
+	void AllocateDescriptorSet(VkDescriptorSetLayout* descSetLayout, VkDescriptorSet* descSet, VkDescriptorPool* descPool)
 	{
 		VkDescriptorSetAllocateInfo DescSetAllocateInfo = { };
 		DescSetAllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -433,7 +454,8 @@ private:
 		DescSetAllocateInfo.descriptorSetCount = 1;
 		DescSetAllocateInfo.pSetLayouts = descSetLayout;
 
-		VK_ERROR(vkAllocateDescriptorSets(*Device, &DescSetAllocateInfo, descSet));
+		VkResult Result = vkAllocateDescriptorSets(*Device, &DescSetAllocateInfo, descSet);
+		VK_ERROR(Result);
 	}
 
 	void LinkDescriptorSetToBuffer(uint32 bindingNum, uint64 sizeOfBuffer, VkDescriptorSet* descSet, VkBuffer* bufferHandle)
@@ -563,7 +585,7 @@ private:
 
 		Vector3D DirLight(0.0f, -0.6899f, -0.7239f);
 		//DirLight.Normalize();
-		ShaderSceneData->DirectionalLightDirection = Vector4D(DirLight, 0.0f);
+		ShaderSceneData->DirectionalLightDirection = Vector4D(DirLight, 1.0f);
 		ShaderSceneData->SunAmbient = Vector4D(0.25f, 0.25f, 0.35f, 1.0f);
 		ShaderSceneData->DirectionalLightColor = Vector4D(0.9f, 0.9f, 1.0f, 1.0f);
 
@@ -574,9 +596,27 @@ private:
 		uint32 MaterialOffset = 0;
 		uint32 WorldMatricesOffset = 0;
 		uint32 StaticMeshIndex = 0;
+		uint32 TextureOffset = 0;
 
 		ShaderSceneData->NumOfLights = 0;
 		PointLight PLight;
+		SpotLight SLight;
+
+		/* store the texture paths so we can load them in later */
+		std::vector<std::string> TexturePaths;
+		TexturePaths.push_back("../Assets/Textures/DefaultDiffuseMap.ktx");
+
+		srand(time(NULL));
+
+		Vector4D SpotLightColors[] =
+		{
+			{1, 0, 0, 1}, {0, 1, 0, 1}, {0, 0, 1, 1}
+		};
+		Vector4D PointLightColors[] =
+		{
+			{0, 1, 0.898f, 1}, {1, 0, 0.719f, 1},
+			{1, 0.380f, 0, 1}, {0, 1, 0.078, 1}
+		};
 
 		/* Load the Materices and Materials */
 		for (uint32 i = 0; i < rawData.size(); i++)
@@ -588,14 +628,62 @@ private:
 
 			if (rawData[i].IsLight)
 			{
-				PLight.Position = rawData[i].WorldMatrices[0][3];
-				PLight.AddStrength(20.0f);
+				switch (rawData[i].Light)
+				{
+				case Directional:
+				{
+					/* Get direction vector from matrix */
+					Vector4D Position = rawData[i].WorldMatrices[0][2];
+					rawData[i].WorldMatrices[0].SetTranslation(Vector3D(0, 0, 0));
+					Vector4D DirectionVector = rawData[i].WorldMatrices[0] * Position;
+					DirectionVector.Normalize();
+					DirectionVector.W = 1.0f;
 
-				PLight.Color = Vector4D(0.0f, 1.0f, 1.0f, 1.0f);
-				PLight.SetRadius(100.0f);
+					ShaderSceneData->DirectionalLightDirection = DirectionVector;
+					break;
+				}
 
-				ShaderSceneData->Lights[static_cast<uint32>(ShaderSceneData->NumOfLights.X)] = PLight;
-				ShaderSceneData->NumOfLights.X += 1.0f;
+				case Point:
+				{
+					PLight.Position = rawData[i].WorldMatrices[0][3];
+					PLight.AddStrength(2.0f);
+
+					/*PLight.Color = Vector4D((rand() / static_cast<float>(RAND_MAX)),
+						(rand() / static_cast<float>(RAND_MAX)),
+						(rand() / static_cast<float>(RAND_MAX)), 1.0f);*/
+
+					PLight.Color = PointLightColors[static_cast<uint32>(ShaderSceneData->NumOfLights.X)];
+					PLight.SetRadius(10.0f);
+
+					ShaderSceneData->PointLights[static_cast<uint32>(ShaderSceneData->NumOfLights.X)] = PLight;
+					ShaderSceneData->NumOfLights.X += 1.0f;
+
+					break;
+				}
+
+				case Spot:
+				{
+					/* Get direction vector from matrix */
+					Vector4D Position = rawData[i].WorldMatrices[0][3];
+					rawData[i].WorldMatrices[0].SetTranslation(Vector3D(0, 0, 0));
+					Vector4D DirectionVector = Vector4D(0.0f, -1.0f, 0.0f, 0.0f); // rawData[i].WorldMatrices[0] * Position;
+					DirectionVector.Normalize();
+
+					SLight.Position = Position;
+					SLight.ConeDirection = DirectionVector;
+
+					SLight.Color = SpotLightColors[static_cast<uint32>(ShaderSceneData->NumOfLights.Y)];
+
+
+					SLight.AddStrength(2.5f);
+					SLight.SetConeRatio(Math::DegreesToRadians(50.0f));
+
+					ShaderSceneData->SpotLights[static_cast<uint32>(ShaderSceneData->NumOfLights.Y)] = SLight;
+					ShaderSceneData->NumOfLights.Y += 1.0f;
+					break;
+				}
+				}
+
 				continue;
 			}
 
@@ -618,6 +706,18 @@ private:
 				TempMesh.IndexOffset = rawData[i].Meshes[j].drawInfo.indexOffset;
 				TempMesh.Name = rawData[i].Meshes[j].name;
 				TempMesh.MaterialIndex = rawData[i].Meshes[j].materialIndex;
+
+				/* TextureID */
+				if (rawData[i].Materials[rawData[i].Meshes[j].materialIndex].map_Kd.size() > 0)
+				{
+					TempMesh.DiffuseTextureIndex = (j + TextureOffset) + 1; // account for default diffuse texture
+					TexturePaths.push_back(rawData[i].Materials[rawData[i].Meshes[j].materialIndex].map_Kd);
+				}
+				else
+				{
+					TempMesh.DiffuseTextureIndex = -1;
+					TextureOffset--; // one less texture will be added 
+				}
 
 				outStaticMeshes[StaticMeshIndex].Meshes.push_back(TempMesh);
 			}
@@ -647,9 +747,19 @@ private:
 			IndexOffset += rawData[i].IndexCount;
 			VertexOffset += rawData[i].VertexCount;
 			MaterialOffset += rawData[i].MaterialCount;
+			TextureOffset += rawData[i].MeshCount;
 			WorldMatricesOffset += rawData[i].WorldMatrices.size();
 
 			StaticMeshIndex++;
+		}
+
+		/* Load all textures */
+		Textures.resize(TexturePaths.size());
+		for (uint32 i = 0; i < TexturePaths.size(); ++i)
+		{
+			LoadTexture(TexturePaths[i].c_str(), Textures[i]);
+			CreateDefaultSampler(Textures[i].Texture.levelCount, Textures[i].Sampler);
+			CreateDefaultImageViewFromTexture(&Textures[i], Textures[i].View);
 		}
 	}
 

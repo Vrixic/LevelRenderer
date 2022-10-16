@@ -54,6 +54,8 @@ public:
 	inline float Length() const;
 
 	inline float LengthSquared() const;
+
+	inline void Normalize();
 };
 
 inline Vector4D::Vector4D()
@@ -178,4 +180,13 @@ inline float Vector4D::Length() const
 inline float Vector4D::LengthSquared() const
 {
 	return (X * X + Y * Y + Z * Z + W * W);
+}
+
+inline void Vector4D::Normalize()
+{
+	const float Magnitude = (1.0f / Length());
+	X *= Magnitude;
+	Y *= Magnitude;
+	Z *= Magnitude;
+	W *= Magnitude;
 }

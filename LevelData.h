@@ -65,7 +65,7 @@ public:
 
 		for (uint32 i = 0; i < rawMeshDatas.size(); ++i)
 		{
-			if (rawMeshDatas[i].IsCamera)
+			if (rawMeshDatas[i].IsCamera || rawMeshDatas[i].IsLight)
 			{
 				continue;
 			}

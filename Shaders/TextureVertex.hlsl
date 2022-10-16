@@ -26,6 +26,16 @@ struct PointLight
     float4 Color;
 };
 
+struct SpotLight
+{
+    /* W Component - spot light strength */
+    float4 Position;
+
+	/* W Component - cone ratio */
+    float4 Color;
+    float4 ConeDirection;
+};
+
 struct SceneDataGlobal
 {
 	/* Globally shared model information */
@@ -42,9 +52,14 @@ struct SceneDataGlobal
     float4x4 Matrices[MAX_SUBMESH_PER_DRAW]; // World space matrices
     Material Materials[MAX_SUBMESH_PER_DRAW]; // color/texture of surface info of all meshes
     
-    PointLight Lights[MAX_LIGHTS_PER_DRAW];
+    PointLight PointLights[MAX_LIGHTS_PER_DRAW];
 
-	/* 16-byte padding for the lights, which is stored on the X component */
+    SpotLight SpotLights[MAX_LIGHTS_PER_DRAW];
+
+	/* 16-byte padding for the lights,
+	* X component -> num of point lights
+	* Y component -> num of spot lights
+	*/
     float4 NumOfLights;
 };
 

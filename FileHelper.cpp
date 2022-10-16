@@ -31,7 +31,7 @@ void FileHelper::ReadGameLevelFile(const char* path, std::vector<RawMeshData>& M
 
 	std::unordered_map<std::string, uint32> InstancingMap;
 
-	H2B::Parser Parser;
+	H2B::Parser* Parser = new H2B::Parser;
 
 #if DEBUG
 	std::cout << "[FILE] Opening " << path << "\n";
@@ -57,67 +57,50 @@ void FileHelper::ReadGameLevelFile(const char* path, std::vector<RawMeshData>& M
 				* if it exists, if not only one instance exists for the current Mesh
 				* else there are more instances of the same mesh
 				*/
-				bool bIsInstance = false;
 				std::string CurrentMeshName = Line;
 				for (unsigned int i = Line.length() - 1; i > 0; --i)
 				{
 					if (Line[i] == '.') // an insance of current mesh or new mesh
 					{
-						bIsInstance = true;
 						break;
 					}
-
 					Line.pop_back();
 				}
 
 				Line.pop_back(); // Account for a period or one character 
 
-				if (!bIsInstance || std::strcmp(LastMeshName.c_str(), Line.c_str()) != 0)
+				LastMeshName = Line.length() == 0 ? CurrentMeshName : Line;
+				std::unordered_map<std::string, uint32>::iterator It = InstancingMap.find(LastMeshName);
+
+				if (It == InstancingMap.end())
 				{
-					bool bNewMesh = true;
-					LastMeshName = Line.length() == 0 ? CurrentMeshName : Line;
-
-					// Check if the mesh was previously added -> updated to use hash maps which are a lot faster at looking for duplicates
-					/*for (unsigned int i = 0; i < Meshes.size(); ++i)
-					{
-						if (std::strcmp(Meshes[i].Name.c_str(), LastMeshName.c_str()) == 0)
-						{
-							bNewMesh = false;
-							MeshIndex = i;
-							break;
-						}
-					}*/
-
 					/* New mesh */
-					std::unordered_map<std::string, uint32>::iterator It = InstancingMap.find(LastMeshName);
-					if (It == InstancingMap.end())
+#if DEBUG
+					std::cout << "[Mesh Found]: " << LastMeshName << "\n";
+#endif // DEBUG					
+
+					RawMeshData EmptyMesh;
+					EmptyMesh.Name = LastMeshName;
+					EmptyMesh.InstanceCount = 0;
+					EmptyMesh.IsCamera = false;
+
+					if (!FillRawMeshDataFromH2BFile(("../Assets/h2b/" + LastMeshName + ".h2b").c_str(), Parser, EmptyMesh))
 					{
 #if DEBUG
-						std::cout << "[Mesh Found]: " << LastMeshName << "\n";
+						std::cout << "[Error]: Mesh h2b file could not be read or found....\n";
 #endif // DEBUG
-						InstancingMap.insert(std::pair<std::string, uint32>(LastMeshName, MeshIndex));
-
-						RawMeshData EmptyMesh;
-						EmptyMesh.Name = LastMeshName;
-						EmptyMesh.InstanceCount = 0;
-						EmptyMesh.IsCamera = false;
-
-						if (!FillRawMeshDataFromH2BFile(("../Assets/h2b/" + LastMeshName + ".h2b").c_str(), Parser, EmptyMesh))
-						{
-#if DEBUG
-							std::cout << "[Error]: Mesh h2b file could not be read or found....\n";
-#endif // DEBUG
-						}
-
-						Meshes.push_back(EmptyMesh);
-						MeshIndex = Meshes.size() - 1;
 					}
-					else
-					{
-						MeshIndex = It->second;
-					}
+
+
+					Meshes.push_back(EmptyMesh);
+					MeshIndex = Meshes.size() - 1;
+
+					InstancingMap.insert(std::pair<std::string, uint32>(LastMeshName, MeshIndex));
 				}
-
+				else
+				{
+					MeshIndex = It->second;
+				}
 				Meshes[MeshIndex].InstanceCount++;
 #if DEBUG
 				std::cout << "[Mesh Instance]: " << LastMeshName << ": " << Meshes[MeshIndex].InstanceCount << "\n";
@@ -134,16 +117,27 @@ void FileHelper::ReadGameLevelFile(const char* path, std::vector<RawMeshData>& M
 			}
 			else if (std::strcmp(Line.c_str(), "CAMERA") == 0)
 			{
-				std::getline(FileHandle, Line, '\n');
+				if (InstancingMap.find("CAMERA") == InstancingMap.end())
+				{
+					std::getline(FileHandle, Line, '\n');
 #if DEBUG
-				std::cout << "[Camera Found]: " << Line << "\n";
+					std::cout << "[Camera Found]: " << Line << "\n";
 #endif // DEBUG
-				RawMeshData EmptyMesh;
-				EmptyMesh.Name = Line;
-				EmptyMesh.IsCamera = true;
+					RawMeshData EmptyMesh;
+					EmptyMesh.Name = Line;
+					EmptyMesh.IsCamera = true;
 
-				Meshes.push_back(EmptyMesh);
-				MeshIndex = Meshes.size() - 1;
+					Meshes.push_back(EmptyMesh);
+					MeshIndex = Meshes.size() - 1;
+					InstancingMap.insert(std::pair<std::string, uint32>("CAMERA", MeshIndex));
+				}
+				else
+				{
+					std::getline(FileHandle, Line, '\n');
+#if DEBUG
+					std::cout << "[Camera Found]: " << Line << ".. will be discarded, multiple cameras not supported..\n";
+#endif // DEBUG
+				}
 
 				/* Read the Matrix */
 				ReadMatrixFromFile(FileHandle, Matrix, Line);
@@ -158,7 +152,7 @@ void FileHelper::ReadGameLevelFile(const char* path, std::vector<RawMeshData>& M
 				std::getline(FileHandle, Line, '\n');
 
 #if DEBUG
-				std::cout << "[Light Found]: " <<  Line << "\n";
+				std::cout << "[Light Found]: " << Line << "\n";
 #endif // DEBUG
 				std::string LineCopy = Line;
 				for (unsigned int i = Line.length() - 1; i > 0; --i)
@@ -172,25 +166,39 @@ void FileHelper::ReadGameLevelFile(const char* path, std::vector<RawMeshData>& M
 				}
 				Line.pop_back(); // Account for a period or one character 
 
-				if (std::strcmp(LineCopy.c_str(), "Point") != 0 
-					&& std::strcmp(Line.c_str(), "Point") != 0)
-				{
-#if DEBUG
-					std::cout << "[FileHelper]: A light was found and discarded...\n";
+				LightType LType;
 
-					std::getline(FileHandle, Line, '>');
-					std::cout << Line << ">";
-					std::getline(FileHandle, Line);
-					std::cout << Line;
-#endif // DEBUG
-					continue;
-				}
+				Line = Line.length() == 0 ? LineCopy : Line;
+
+//				if (std::strcmp(Line.c_str(), "Point") != 0)
+//				{
+//#if DEBUG
+//					std::cout << "[FileHelper]: A light was found and discarded...\n";
+//
+//					std::getline(FileHandle, Line, '>');
+//					std::cout << Line << ">";
+//					std::getline(FileHandle, Line);
+//					std::cout << Line;
+//#endif // DEBUG
+//				}				
 
 				RawMeshData EmptyMesh;
 				EmptyMesh.Name = Line;
 				EmptyMesh.IsCamera = false;
 				EmptyMesh.IsLight = true;
 
+				if (std::strcmp(Line.c_str(), "Point") == 0)
+				{
+					EmptyMesh.Light = LightType::Point;
+				}
+				else if (std::strcmp(Line.c_str(), "Sun") == 0)
+				{
+					EmptyMesh.Light = LightType::Directional;
+				}
+				else if (std::strcmp(Line.c_str(), "Spot") == 0)
+				{
+					EmptyMesh.Light = LightType::Spot;
+				}
 
 				Meshes.push_back(EmptyMesh);
 				MeshIndex = Meshes.size() - 1;
@@ -205,6 +213,26 @@ void FileHelper::ReadGameLevelFile(const char* path, std::vector<RawMeshData>& M
 			}
 		}
 
+		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
+
+		/*std::cout << "[Materials]: \n";
+		for (uint32 i = 0; i < Meshes.size(); ++i)
+		{
+			for (uint32 j = 0; j < Meshes[i].MaterialCount; ++j)
+			{
+				if (Meshes[i].Materials[j].map_Kd.c_str() == nullptr)
+				{
+					std::cout << "[Error]: no string or bad string: at index: " << j << std::endl;
+					continue;
+				}
+				std::cout << Meshes[i].Materials[j].map_Kd << "\n";
+			}
+		}
+		std::cout << "\n";*/
+
+		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
+
+		delete Parser;
 		FileHandle.close();
 	}
 	else
@@ -236,25 +264,48 @@ void FileHelper::ReadMatrixFromFile(std::ifstream& fileHandle, Matrix4D& outMatr
 	Vector4D V3 = ReadVectorFromString(Line);
 
 	std::getline(fileHandle, Line, ')'); // read row 4
-	outMatrixString.append(Line + ")>\n\n");
+	outMatrixString.append(Line + ")\n\n");
 	Vector4D V4 = ReadVectorFromString(Line);
+
+	std::getline(fileHandle, Line, '\n');
 
 	outMatrix = Matrix4D(V1, V2, V3, V4);
 }
 
-bool FileHelper::FillRawMeshDataFromH2BFile(const char* filePath, H2B::Parser& parser, RawMeshData& outMesh)
+void FileHelper::ParseFileNameFromPath(const std::string& inPath, std::string& outFileName)
 {
-	if (parser.Parse(filePath))
+	for (uint32 i = 0; i < inPath.length(); ++i)
 	{
-		outMesh.VertexCount = parser.vertexCount;
-		outMesh.IndexCount = parser.indexCount;
-		outMesh.MaterialCount = parser.materialCount;
-		outMesh.MeshCount = parser.meshCount;
-		outMesh.Vertices = parser.vertices;
-		outMesh.Indices = parser.indices;
-		outMesh.Materials = parser.materials;
-		outMesh.Batches = parser.batches;
-		outMesh.Meshes = parser.meshes;
+		if (inPath[i] == '\\' || inPath[i] == '/')
+		{
+			break;
+		}
+
+		outFileName.append(&inPath[i]);
+	}
+}
+
+bool FileHelper::FillRawMeshDataFromH2BFile(const char* filePath, H2B::Parser* parser, RawMeshData& outMesh)
+{
+	if (parser->Parse(filePath))
+	{
+		outMesh.VertexCount = parser->vertexCount;
+		outMesh.IndexCount = parser->indexCount;
+		outMesh.MaterialCount = parser->materialCount;
+		outMesh.MeshCount = parser->meshCount;
+		outMesh.Vertices = parser->vertices;
+		outMesh.Indices = parser->indices;
+
+		for (uint32 i = 0; i < parser->materialCount; ++i)
+		{
+			RawMaterial Mat;
+			Mat.attrib = parser->materials[i].attrib;
+			Mat.map_Kd = std::string(parser->materials[i].map_Kd == nullptr ? "" : parser->materials[i].map_Kd);
+			outMesh.Materials.push_back(Mat);
+		}
+
+		outMesh.Batches = parser->batches;
+		outMesh.Meshes = parser->meshes;
 
 #if DEBUG
 		std::cout << "[H2B]: Successfully parsed file" << filePath << "....\n";
