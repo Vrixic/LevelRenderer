@@ -148,6 +148,17 @@ public:
 		}
 	}
 
+	std::vector<Vertex>* GetVertices()
+	{
+		return &Vertices;
+	}
+
+	void UpdateVertexBuffer()
+	{
+		uint32 VerticesSizeInBytes = sizeof(Vertex) * Vertices.size();
+		GvkHelper::write_to_buffer(*Device, VertexBufferData, Vertices.data(), VerticesSizeInBytes);
+	}
+
 private:
 	void LoadVertexData()
 	{
@@ -208,4 +219,5 @@ private:
 			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &IndexBufferHandle, &IndexBufferData);
 		GvkHelper::write_to_buffer(*Device, IndexBufferData, Indices.data(), IndicesSizeInBytes);
 	}
+
 };

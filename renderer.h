@@ -8,11 +8,17 @@
 #include "FileHelper.h"
 #include "Level.h"
 #include "StaticMesh.h"
+#include "Frustum.h"
+#include "VulkanPipeline.h"
 
 struct ConstantBuffer
 {
 	uint32 MeshID;
 	uint32 MaterialID;
+
+	uint32 DiffuseTextureID;
+
+	uint32 ViewMatID;
 };
 
 // Creation, Rendering & Cleanup
@@ -32,18 +38,35 @@ class Renderer
 	VkDevice device = nullptr;
 	//VkBuffer vertexHandle = nullptr;
 	//VkDeviceMemory vertexData = nullptr;
-	VkShaderModule vertexShader = nullptr;
-	VkShaderModule pixelShader = nullptr;
+	VkShaderModule VertexShader_Texture = nullptr;
+	VkShaderModule VertexShader_Basic = nullptr;
+	VkShaderModule VertexShader_Material = nullptr;
+	VkShaderModule PixelShader_Texture = nullptr;
+	VkShaderModule PixelShader_Basic = nullptr;
+	VkShaderModule PixelShader_Material = nullptr;
+
 	// pipeline settings for drawing (also required)
-	VkPipeline pipeline = nullptr;
+	VkPipeline Pipeline_Texture = nullptr;
+	VkPipeline Pipeline_Material = nullptr;
+	VkPipeline Pipeline_Debug = nullptr;
+	VkPipeline* CurrentPipeline = nullptr;
 	VkPipelineLayout pipelineLayout = nullptr;
+
+	VulkanPipeline PipelineCreator;
 
 	bool CaptureInput = true;
 	float CameraSpeed = 5.0f;
+
+	Frustum CameraFrustum;
+
 public:
 
 	Level* World;
 	std::vector<StaticMesh> StaticMeshes;
+
+	std::vector<StaticMesh> DebugMeshes;
+
+	bool SceneHasTextures = false;
 
 	Renderer(GW::SYSTEM::GWindow _win, GW::GRAPHICS::GVulkanSurface _vlk)
 	{
@@ -69,7 +92,7 @@ public:
 		vlk.GetDevice((void**)&device);
 		vlk.GetPhysicalDevice((void**)&physicalDevice);
 
-		World = new Level(&device, &vlk, &pipelineLayout, "Vrixic", "../Levels/GameLevelLights.txt");
+		World = new Level(&device, &vlk, &pipelineLayout, "Vrixic", "../Levels/TestLevel_Textures_3.txt");
 
 		/***************** SHADER INTIALIZATION ******************/
 		// Intialize runtime shader compiler HLSL -> SPIRV
@@ -81,27 +104,72 @@ public:
 #ifndef NDEBUG
 		shaderc_compile_options_set_generate_debug_info(options);
 #endif
-		std::string VertexShaderSource = FileHelper::LoadShaderFileIntoString("../Shaders/TextureVertex.hlsl");
-		std::string PixelShaderSource = FileHelper::LoadShaderFileIntoString("../Shaders/TexturePixel.hlsl");
+		std::string VertexShaderTextureSource = FileHelper::LoadShaderFileIntoString("../Shaders/TextureVertex.hlsl");
+		std::string PixelShaderTextureSource = FileHelper::LoadShaderFileIntoString("../Shaders/TexturePixel.hlsl");
 
 		// Create Vertex Shader
 		shaderc_compilation_result_t result = shaderc_compile_into_spv( // compile
-			compiler, VertexShaderSource.c_str(), VertexShaderSource.length(),
+			compiler, VertexShaderTextureSource.c_str(), VertexShaderTextureSource.length(),
 			shaderc_vertex_shader, "main.vert", "main", options);
 		if (shaderc_result_get_compilation_status(result) != shaderc_compilation_status_success) // errors?
 			std::cout << "Vertex Shader Errors: " << shaderc_result_get_error_message(result) << std::endl;
 		GvkHelper::create_shader_module(device, shaderc_result_get_length(result), // load into Vulkan
-			(char*)shaderc_result_get_bytes(result), &vertexShader);
+			(char*)shaderc_result_get_bytes(result), &VertexShader_Texture);
 		shaderc_result_release(result); // done
 		// Create Pixel Shader
 		result = shaderc_compile_into_spv( // compile
-			compiler, PixelShaderSource.c_str(), PixelShaderSource.length(),
+			compiler, PixelShaderTextureSource.c_str(), PixelShaderTextureSource.length(),
 			shaderc_fragment_shader, "main.frag", "main", options);
 		if (shaderc_result_get_compilation_status(result) != shaderc_compilation_status_success) // errors?
 			std::cout << "Pixel Shader Errors: " << shaderc_result_get_error_message(result) << std::endl;
 		GvkHelper::create_shader_module(device, shaderc_result_get_length(result), // load into Vulkan
-			(char*)shaderc_result_get_bytes(result), &pixelShader);
+			(char*)shaderc_result_get_bytes(result), &PixelShader_Texture);
 		shaderc_result_release(result); // done
+
+		std::string VertexShaderModelSource = FileHelper::LoadShaderFileIntoString("../Shaders/MaterialVertex.hlsl");
+		std::string PixelShaderModelSource = FileHelper::LoadShaderFileIntoString("../Shaders/MaterialPixel.hlsl");
+
+		// Create Vertex Shader
+		result = shaderc_compile_into_spv( // compile
+			compiler, VertexShaderModelSource.c_str(), VertexShaderModelSource.length(),
+			shaderc_vertex_shader, "main.vert", "main", options);
+		if (shaderc_result_get_compilation_status(result) != shaderc_compilation_status_success) // errors?
+			std::cout << "Vertex Shader Errors: " << shaderc_result_get_error_message(result) << std::endl;
+		GvkHelper::create_shader_module(device, shaderc_result_get_length(result), // load into Vulkan
+			(char*)shaderc_result_get_bytes(result), &VertexShader_Material);
+		shaderc_result_release(result); // done
+		// Create Pixel Shader
+		result = shaderc_compile_into_spv( // compile
+			compiler, PixelShaderModelSource.c_str(), PixelShaderModelSource.length(),
+			shaderc_fragment_shader, "main.frag", "main", options);
+		if (shaderc_result_get_compilation_status(result) != shaderc_compilation_status_success) // errors?
+			std::cout << "Pixel Shader Errors: " << shaderc_result_get_error_message(result) << std::endl;
+		GvkHelper::create_shader_module(device, shaderc_result_get_length(result), // load into Vulkan
+			(char*)shaderc_result_get_bytes(result), &PixelShader_Material);
+		shaderc_result_release(result); // done
+
+		std::string VertexShaderBasicSource = FileHelper::LoadShaderFileIntoString("../Shaders/BasicVertex.hlsl");
+		std::string PixelShaderBasicSource = FileHelper::LoadShaderFileIntoString("../Shaders/BasicPixel.hlsl");
+
+		// Create Vertex Shader
+		result = shaderc_compile_into_spv( // compile
+			compiler, VertexShaderBasicSource.c_str(), VertexShaderBasicSource.length(),
+			shaderc_vertex_shader, "main.vert", "main", options);
+		if (shaderc_result_get_compilation_status(result) != shaderc_compilation_status_success) // errors?
+			std::cout << "Vertex Shader Errors: " << shaderc_result_get_error_message(result) << std::endl;
+		GvkHelper::create_shader_module(device, shaderc_result_get_length(result), // load into Vulkan
+			(char*)shaderc_result_get_bytes(result), &VertexShader_Basic);
+		shaderc_result_release(result); // done
+		// Create Pixel Shader
+		result = shaderc_compile_into_spv( // compile
+			compiler, PixelShaderBasicSource.c_str(), PixelShaderBasicSource.length(),
+			shaderc_fragment_shader, "main.frag", "main", options);
+		if (shaderc_result_get_compilation_status(result) != shaderc_compilation_status_success) // errors?
+			std::cout << "Pixel Shader Errors: " << shaderc_result_get_error_message(result) << std::endl;
+		GvkHelper::create_shader_module(device, shaderc_result_get_length(result), // load into Vulkan
+			(char*)shaderc_result_get_bytes(result), &PixelShader_Basic);
+		shaderc_result_release(result); // done
+
 		// Free runtime shader compiler resources
 		shaderc_compile_options_release(options);
 		shaderc_compiler_release(compiler);
@@ -110,170 +178,165 @@ public:
 		// Create Pipeline & Layout (Thanks Tiny!)
 		VkRenderPass renderPass;
 		vlk.GetRenderPass((void**)&renderPass);
-		VkPipelineShaderStageCreateInfo stage_create_info[2] = {};
+
 		// Create Stage Info for Vertex Shader
-		stage_create_info[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		stage_create_info[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-		stage_create_info[0].module = vertexShader;
-		stage_create_info[0].pName = "main";
+		PipelineCreator.AddNewStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, &VertexShader_Texture);
 		// Create Stage Info for Fragment Shader
-		stage_create_info[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		stage_create_info[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-		stage_create_info[1].module = pixelShader;
-		stage_create_info[1].pName = "main";
+		PipelineCreator.AddNewStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, &PixelShader_Texture);
+
 		// Assembly State
-		VkPipelineInputAssemblyStateCreateInfo assembly_create_info = {};
-		assembly_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-		assembly_create_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-		assembly_create_info.primitiveRestartEnable = false;
+		PipelineCreator.SetInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+
 		// Vertex Input State
-		// TODO: Part 1c
-		VkVertexInputBindingDescription vertex_binding_description[2] = {};
-		vertex_binding_description[0].binding = 0;
-		vertex_binding_description[0].stride = sizeof(Vertex);
-		vertex_binding_description[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		PipelineCreator.AddNewVertexInputBindingDescription(0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX);
+		// Vertex attribs descs
+		PipelineCreator.AddNewVertexInputAttributeDescription(0, 0, VK_FORMAT_R32G32_SFLOAT, 0);
+		PipelineCreator.AddNewVertexInputAttributeDescription(1, 0, VK_FORMAT_R32G32B32_SFLOAT, 8);
+		PipelineCreator.AddNewVertexInputAttributeDescription(2, 0, VK_FORMAT_R32G32B32_SFLOAT, 20);
+		PipelineCreator.AddNewVertexInputAttributeDescription(3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 32);
 
-		//vertex_binding_description[1].binding = 1;
-		//vertex_binding_description[1].stride = sizeof(uint32);
-		//vertex_binding_description[1].inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
-		// TODO: Part 1c
-		VkVertexInputAttributeDescription vertex_attribute_description[5] = {
-			{ 0, 0, VK_FORMAT_R32G32_SFLOAT, 0 },
-			{ 1, 0, VK_FORMAT_R32G32B32_SFLOAT, 8 },
-			{ 2, 0, VK_FORMAT_R32G32B32_SFLOAT, 20 },
-			{ 3, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 32 },
+		// Set Vertex input state create info 
+		PipelineCreator.SetVertexInputStateCreateInfo();
 
-			//{ 4, 0, VK_FORMAT_R32_UINT, 0 }
-		};
-		VkPipelineVertexInputStateCreateInfo input_vertex_info = {};
-		input_vertex_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		input_vertex_info.vertexBindingDescriptionCount = 1;
-		input_vertex_info.pVertexBindingDescriptions = vertex_binding_description;
-		input_vertex_info.vertexAttributeDescriptionCount = 4;
-		input_vertex_info.pVertexAttributeDescriptions = vertex_attribute_description;
 		// Viewport State (we still need to set this up even though we will overwrite the values)
-		VkViewport viewport = {
-			0, 0, static_cast<float>(width), static_cast<float>(height), 0, 1
-		};
-		VkRect2D scissor = { {0, 0}, {width, height} };
-		VkPipelineViewportStateCreateInfo viewport_create_info = {};
-		viewport_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-		viewport_create_info.viewportCount = 1;
-		viewport_create_info.pViewports = &viewport;
-		viewport_create_info.scissorCount = 1;
-		viewport_create_info.pScissors = &scissor;
+		Vector2D Pos = Vector2D(0.0f, 0.0f);
+		Vector2D WidthHeight = Vector2D(static_cast<float>(width), static_cast<float>(height));
+		Vector2D MinMaxDepth = Vector2D(0.0f, 1.0f);
+		PipelineCreator.AddNewViewport(Pos, WidthHeight, MinMaxDepth);
+		PipelineCreator.AddNewScissor(0, 0, width, height);
+
+		// Second viewport 
+		//Pos.X += 10.0f;
+		//Pos.Y += 10.0f;
+		//WidthHeight.X = 100.0f;
+		//WidthHeight.Y = 100.0f;
+		//
+		//PipelineCreator.AddNewViewport(Pos, WidthHeight, MinMaxDepth);
+		//PipelineCreator.AddNewScissor(0, 0, 100, 100);
+
+		// Create the viewport state create info
+		PipelineCreator.SetViewportStateCreateInfo();
+
 		// Rasterizer State
-		VkPipelineRasterizationStateCreateInfo rasterization_create_info = {};
-		rasterization_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-		rasterization_create_info.rasterizerDiscardEnable = VK_FALSE;
-		rasterization_create_info.polygonMode = VK_POLYGON_MODE_FILL;
-		rasterization_create_info.lineWidth = 1.0f;
-		rasterization_create_info.cullMode = VK_CULL_MODE_BACK_BIT;
-		rasterization_create_info.frontFace = VK_FRONT_FACE_CLOCKWISE;
-		rasterization_create_info.depthClampEnable = VK_FALSE;
-		rasterization_create_info.depthBiasEnable = VK_FALSE;
-		rasterization_create_info.depthBiasClamp = 0.0f;
-		rasterization_create_info.depthBiasConstantFactor = 0.0f;
-		rasterization_create_info.depthBiasSlopeFactor = 0.0f;
+		PipelineCreator.SetDefaultRasterizationStateCreateInfo();
+
 		// Multisampling State
-		VkPipelineMultisampleStateCreateInfo multisample_create_info = {};
-		multisample_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-		multisample_create_info.sampleShadingEnable = VK_FALSE;
-		multisample_create_info.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-		multisample_create_info.minSampleShading = 1.0f;
-		multisample_create_info.pSampleMask = VK_NULL_HANDLE;
-		multisample_create_info.alphaToCoverageEnable = VK_FALSE;
-		multisample_create_info.alphaToOneEnable = VK_FALSE;
+		PipelineCreator.SetDefaultMultisampleStateCreateInfo();
+
 		// Depth-Stencil State
-		VkPipelineDepthStencilStateCreateInfo depth_stencil_create_info = {};
-		depth_stencil_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-		depth_stencil_create_info.depthTestEnable = VK_TRUE;
-		depth_stencil_create_info.depthWriteEnable = VK_TRUE;
-		depth_stencil_create_info.depthCompareOp = VK_COMPARE_OP_LESS;
-		depth_stencil_create_info.depthBoundsTestEnable = VK_FALSE;
-		depth_stencil_create_info.minDepthBounds = 0.0f;
-		depth_stencil_create_info.maxDepthBounds = 1.0f;
-		depth_stencil_create_info.stencilTestEnable = VK_FALSE;
+		PipelineCreator.SetDefaultDepthStencilStateCreateInfo();
+
 		// Color Blending Attachment & State
-		VkPipelineColorBlendAttachmentState color_blend_attachment_state = {};
-		color_blend_attachment_state.colorWriteMask = 0xF;
-		color_blend_attachment_state.blendEnable = VK_FALSE;
-		color_blend_attachment_state.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_COLOR;
-		color_blend_attachment_state.dstColorBlendFactor = VK_BLEND_FACTOR_DST_COLOR;
-		color_blend_attachment_state.colorBlendOp = VK_BLEND_OP_ADD;
-		color_blend_attachment_state.srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-		color_blend_attachment_state.dstAlphaBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
-		color_blend_attachment_state.alphaBlendOp = VK_BLEND_OP_ADD;
-		VkPipelineColorBlendStateCreateInfo color_blend_create_info = {};
-		color_blend_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-		color_blend_create_info.logicOpEnable = VK_FALSE;
-		color_blend_create_info.logicOp = VK_LOGIC_OP_COPY;
-		color_blend_create_info.attachmentCount = 1;
-		color_blend_create_info.pAttachments = &color_blend_attachment_state;
-		color_blend_create_info.blendConstants[0] = 0.0f;
-		color_blend_create_info.blendConstants[1] = 0.0f;
-		color_blend_create_info.blendConstants[2] = 0.0f;
-		color_blend_create_info.blendConstants[3] = 0.0f;
+		PipelineCreator.SetDefaultColorBlendAttachmentState();
+
+		PipelineCreator.SetDefaultColorBlendStateCreateInfo();
+
 		// Dynamic State 
-		VkDynamicState dynamic_state[2] = {
-			// By setting these we do not need to re-create the pipeline on Resize
-			VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR
-		};
-		VkPipelineDynamicStateCreateInfo dynamic_create_info = {};
-		dynamic_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-		dynamic_create_info.dynamicStateCount = 2;
-		dynamic_create_info.pDynamicStates = dynamic_state;
-		// TODO: Part 2c
-		//VkPushConstantRange PushConstantRange = { };
-		//PushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-		//PushConstantRange.offset = 0;
-		//PushConstantRange.size = sizeof(ShaderVars);
+		// By setting these we do not need to re-create the pipeline on Resize
+		PipelineCreator.AddNewDynamicState(VK_DYNAMIC_STATE_VIEWPORT);
+		PipelineCreator.AddNewDynamicState(VK_DYNAMIC_STATE_SCISSOR);
+		PipelineCreator.SetDynamicStateCreateInfo();
 
 		/* Load World Before pipeline creation */
-		StaticMeshes = World->Load();
+		Frustum CamF;
+		float AspectRatio = 0.0f;
+		vlk.GetAspectRatio(AspectRatio);
 
-		std::vector<VkDescriptorSetLayout*> DescSetLayouts = World->GetShaderStorageDescSetLayouts();
+		/* Load the file */
+		std::vector<RawMeshData> RawData;
+		FileHelper::ReadGameLevelFile("../Levels/TestLevel_Textures_3.txt", RawData);
+
+		H2B::VERTEX V;
+		V.pos = reinterpret_cast<H2B::VECTOR&>(CamF.FarPlaneTopLeft);
+
+		RawMeshData Data;
+		Data.IndexCount = Frustum::GetFrustumIndexCount();
+		Data.VertexCount = Frustum::GetFrustumVertexCount();
+
+		Data.Vertices.resize(Frustum::GetFrustumVertexCount());
+		for (uint32 i = 0; i < Frustum::GetFrustumVertexCount(); ++i)
+		{
+			Data.Vertices[i] = V; // empty vector
+		}
+
+		Data.Indices.resize(Frustum::GetFrustumIndexCount());
+		uint32* Indices = Frustum::GetFrustumIndices();
+		for (uint32 i = 0; i < Frustum::GetFrustumIndexCount(); ++i)
+		{
+			Data.Indices[i] = Indices[i];
+		}
+
+		Data.InstanceCount = 1;
+		Data.MaterialCount = 1;
+		Data.MeshCount = 1;
+		Data.Materials.push_back(RawData[1].Materials[0]); // random mat
+
+		Data.WorldMatrices.push_back(Matrix4D::Identity());
+
+		H2B::MESH M;
+		M.materialIndex = 0;
+		M.name = "nullptr";
+		M.drawInfo.indexCount = Frustum::GetFrustumIndexCount();
+		M.drawInfo.indexOffset = 0;
+
+		Data.Meshes.push_back(M);
+
+		RawData.push_back(Data);
+
+		StaticMeshes = World->Load(RawData);
+
+		DebugMeshes.push_back(StaticMeshes[StaticMeshes.size() - 1]);
+		StaticMeshes.pop_back();
 
 		// Descriptor pipeline layout
-		VkPipelineLayoutCreateInfo pipeline_layout_create_info = { };
-		pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-		pipeline_layout_create_info.pNext = nullptr;
-		pipeline_layout_create_info.setLayoutCount = DescSetLayouts.size();
-		pipeline_layout_create_info.pSetLayouts = *DescSetLayouts.data();
 
-		pipeline_layout_create_info.flags = 0;
+		// Before we set the layout we need to specify push constants if any
+		PipelineCreator.AddNewPushConstantRange(0, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+			sizeof(ConstantBuffer));
 
-		VkPushConstantRange PushConstantRange = { };
-		PushConstantRange.offset = 0;
-		PushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-		PushConstantRange.size = sizeof(ConstantBuffer);
+		std::vector<VkDescriptorSetLayout*> DescSetLayouts = World->GetShaderStorageDescSetLayouts();
+		PipelineCreator.SetLayoutCreateInfo(DescSetLayouts.size(), *DescSetLayouts.data());
 
-		pipeline_layout_create_info.pushConstantRangeCount = 1; // TODO: Part 2d 
-		pipeline_layout_create_info.pPushConstantRanges = &PushConstantRange; // TODO: Part 2d
+		PipelineCreator.CreatePipelineLayout(&device, pipelineLayout);
 
-		vkCreatePipelineLayout(device, &pipeline_layout_create_info,
-			nullptr, &pipelineLayout);
 		// Pipeline State... (FINALLY) 
-		VkGraphicsPipelineCreateInfo pipeline_create_info = {};
-		pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-		pipeline_create_info.stageCount = 2;
-		pipeline_create_info.pStages = stage_create_info;
-		pipeline_create_info.pInputAssemblyState = &assembly_create_info;
-		pipeline_create_info.pVertexInputState = &input_vertex_info;
-		pipeline_create_info.pViewportState = &viewport_create_info;
-		pipeline_create_info.pRasterizationState = &rasterization_create_info;
-		pipeline_create_info.pMultisampleState = &multisample_create_info;
-		pipeline_create_info.pDepthStencilState = &depth_stencil_create_info;
-		pipeline_create_info.pColorBlendState = &color_blend_create_info;
-		pipeline_create_info.pDynamicState = &dynamic_create_info;
-		pipeline_create_info.layout = pipelineLayout;
-		pipeline_create_info.renderPass = renderPass;
-		pipeline_create_info.subpass = 0;
-		pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE;
-		vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1,
-			&pipeline_create_info, nullptr, &pipeline);
+		PipelineCreator.SetGraphicsPipelineCreateInfo(&pipelineLayout, &renderPass);
+		PipelineCreator.CreateGraphicsPipelines(&device, Pipeline_Texture);
+
+		/* Reset the layout create info expect this time we dont want textures
+		* TODO: Not make this hardcoded size to one
+		*/
+		PipelineCreator.SetLayoutCreateInfo(1, *DescSetLayouts.data());
+		PipelineCreator.ClearStageCreateInfos();
+		PipelineCreator.AddNewStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, &VertexShader_Material);
+		PipelineCreator.AddNewStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, &PixelShader_Material);
+		PipelineCreator.CreateGraphicsPipelines(&device, Pipeline_Material);
+
+		PipelineCreator.SetInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
+		PipelineCreator.ClearStageCreateInfos();
+		PipelineCreator.AddNewStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, &VertexShader_Basic);
+		PipelineCreator.AddNewStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, &PixelShader_Basic);
+		PipelineCreator.CreateGraphicsPipelines(&device, Pipeline_Debug);
 
 
+		/* check is textures are supported if not */
+		for (uint32 i = 0; i < StaticMeshes.size(); ++i)
+		{
+			if (StaticMeshes[i].SupportsTextures())
+			{
+				SceneHasTextures = true;
+				break;
+			}
+		}
+
+		if (SceneHasTextures)
+		{
+			CurrentPipeline = &Pipeline_Texture;
+		}
+		else
+		{
+			CurrentPipeline = &Pipeline_Material;
+		}
 
 		/***************** CLEANUP / SHUTDOWN ******************/
 		// GVulkanSurface will inform us when to release any allocated resources
@@ -283,6 +346,7 @@ public:
 			}
 			});
 	}
+
 	void Render()
 	{
 		// grab the current Vulkan commandBuffer
@@ -301,50 +365,111 @@ public:
 		VkRect2D scissor = { {0, 0}, {width, height} };
 		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
 		// TODO: Part 3a -> Projection matrix
 		GW::MATH::GMATRIXF ProjectionMatrix;
 		GW::MATH::GMatrix::IdentityF(ProjectionMatrix);
 		float FOV = Math::DegreesToRadians(65);
 		float NearPlane = 0.1f;
-		float FarPlane = 100.0f;
+		float FarPlane = 1000.0f;
 		float AspectRatio = 0.0f;
 		vlk.GetAspectRatio(AspectRatio);
 		GW::MATH::GMatrix::ProjectionDirectXLHF(FOV, AspectRatio, NearPlane, FarPlane, ProjectionMatrix);
-
 		World->SetProjectionMatrix(ProjectionMatrix);
+
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *CurrentPipeline);
 		World->Bind();
 
 		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
-		/* Draw Floating Island*/
 		ConstantBuffer Buffer;
+		uint32 VertexCount = 0;
+		uint32 IndexCount = 0;
 
 		for (uint32 i = 0; i < StaticMeshes.size(); ++i)
 		{
-			Buffer.MeshID = StaticMeshes[i].WorldMatrixIndex;
-			//Buffer.MaterialID = StaticMeshes[i].MaterialIndex;
-			
-			//vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
-			//	VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ConstantBuffer), &Buffer);
-			//vkCmdDrawIndexed(commandBuffer,
-			//	StaticMeshes[i].IndexCount,
-			//	StaticMeshes[i].InstanceCount,
-			//	StaticMeshes[i].IndexOffset,
-			//	StaticMeshes[i].VertexOffset, 0);
+			Buffer.MeshID = StaticMeshes[i].GetWorldMatrixIndex();
 
-			for (uint32 j = 0; j < StaticMeshes[i].MeshCount; ++j)
+			for (uint32 j = 0; j < StaticMeshes[i].GetMeshCount(); ++j)
 			{
-				Buffer.MaterialID = StaticMeshes[i].MaterialIndex + StaticMeshes[i].Meshes[j].MaterialIndex;
-				World->BindTexture(StaticMeshes[i].Meshes[j].DiffuseTextureIndex == -1 ? 0 : StaticMeshes[i].Meshes[j].DiffuseTextureIndex);
-				
+				Buffer.MaterialID = StaticMeshes[i].GetMaterialIndex() + StaticMeshes[i].GetSubMeshMaterialIndex(j);
+				Buffer.DiffuseTextureID = StaticMeshes[i].GetSubMeshTextureIndex(j);
+				Buffer.ViewMatID = 0;
+				//World->BindTexture(StaticMeshes[i].GetSubMeshTextureIndex(j));
+
 				vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
 					VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ConstantBuffer), &Buffer);
 				vkCmdDrawIndexed(commandBuffer,
-					StaticMeshes[i].Meshes[j].IndexCount,
-					StaticMeshes[i].InstanceCount,
-					StaticMeshes[i].IndexOffset + StaticMeshes[i].Meshes[j].IndexOffset,
-					StaticMeshes[i].VertexOffset, 0);
+					StaticMeshes[i].GetSubMeshIndexCount(j),
+					StaticMeshes[i].GetInstanceCount(),
+					IndexCount + StaticMeshes[i].GetSubMeshIndexOffset(j),
+					VertexCount, 0);
 			}
+
+			VertexCount += StaticMeshes[i].GetVertexCount();
+			IndexCount += StaticMeshes[i].GetIndexCount();
+		}
+
+		viewport.x = 50;
+		viewport.y = 50;
+		viewport.width = 150;
+		viewport.height = 150;
+		scissor.offset.x = 50;
+		scissor.offset.y = 50;
+		scissor.extent.width = 150;
+		scissor.extent.height = 150;
+
+		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+		VertexCount = 0;
+		IndexCount = 0;	
+		
+		//vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *CurrentPipeline);
+		
+		for (uint32 i = 0; i < StaticMeshes.size(); ++i)
+		{
+			Buffer.MeshID = StaticMeshes[i].GetWorldMatrixIndex();
+		
+			for (uint32 j = 0; j < StaticMeshes[i].GetMeshCount(); ++j)
+			{
+				Buffer.MaterialID = StaticMeshes[i].GetMaterialIndex() + StaticMeshes[i].GetSubMeshMaterialIndex(j);
+				Buffer.DiffuseTextureID = StaticMeshes[i].GetSubMeshTextureIndex(j);
+				Buffer.ViewMatID = 1;
+				//World->BindTexture(StaticMeshes[i].GetSubMeshTextureIndex(j));
+		
+				vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
+					VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ConstantBuffer), &Buffer);
+				vkCmdDrawIndexed(commandBuffer,
+					StaticMeshes[i].GetSubMeshIndexCount(j),
+					StaticMeshes[i].GetInstanceCount(),
+					IndexCount + StaticMeshes[i].GetSubMeshIndexOffset(j),
+					VertexCount, 0);
+			}
+		
+			VertexCount += StaticMeshes[i].GetVertexCount();
+			IndexCount += StaticMeshes[i].GetIndexCount();
+		}
+
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Pipeline_Debug);
+
+		for (uint32 i = 0; i < DebugMeshes.size(); ++i)
+		{
+			Buffer.MeshID = DebugMeshes[i].GetWorldMatrixIndex();
+			Buffer.ViewMatID = 1;
+		
+			for (uint32 j = 0; j < DebugMeshes[i].GetMeshCount(); ++j)
+			{		
+				vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
+					VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ConstantBuffer), &Buffer);
+				vkCmdDrawIndexed(commandBuffer,
+					DebugMeshes[i].GetSubMeshIndexCount(j),
+					DebugMeshes[i].GetInstanceCount(),
+					IndexCount,
+					VertexCount, 0);
+			}
+		
+			VertexCount += DebugMeshes[i].GetVertexCount();
+			IndexCount += DebugMeshes[i].GetIndexCount();
 		}
 		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
 	}
@@ -380,7 +505,128 @@ public:
 
 		if (FKeyState > 0)
 		{
-			CaptureInput = !CaptureInput;
+			std::string FilePath;
+			if (FileHelper::OpenFileDialog(FilePath))
+			{
+				//std::cout << "\n" << FilePath << "\n";
+
+				delete World;
+				StaticMeshes.clear();
+
+				std::string LevelName;
+				uint32 PeriodIndex = -1;
+				uint32 LastSlashIndex = -1;
+
+				for (uint32 i = FilePath.length(); i > 0; --i)
+				{
+					if (FilePath[i] == '\\')
+					{
+						LastSlashIndex = i;
+						break;
+					}
+					else if (FilePath[i] == '.' && PeriodIndex == -1)
+					{
+						PeriodIndex = i;
+					}
+				}
+
+				for (uint32 i = LastSlashIndex + 1; i < PeriodIndex; ++i)
+				{
+					LevelName.push_back(FilePath[i]);
+				}
+
+				World = new Level(&device, &vlk, &pipelineLayout, LevelName.c_str(), FilePath.c_str());
+
+				{
+					/* Load the file */
+					std::vector<RawMeshData> RawData;
+					FileHelper::ReadGameLevelFile(FilePath.c_str(), RawData);
+
+					H2B::VERTEX V;
+					V.pos = { 0,0,0 };
+
+					RawMeshData Data;
+					Data.IndexCount = Frustum::GetFrustumIndexCount();
+					Data.VertexCount = Frustum::GetFrustumVertexCount();
+
+					Data.Vertices.resize(Frustum::GetFrustumVertexCount());
+					for (uint32 i = 0; i < Frustum::GetFrustumVertexCount(); ++i)
+					{
+						Data.Vertices[i] = V; // empty vector
+					}
+
+					Data.Indices.resize(Frustum::GetFrustumIndexCount());
+					uint32* Indices = Frustum::GetFrustumIndices();
+					for (uint32 i = 0; i < Frustum::GetFrustumIndexCount(); ++i)
+					{
+						Data.Indices[i] = Indices[i];
+					}
+
+					Data.InstanceCount = 1;
+					Data.MaterialCount = 1;
+					Data.MeshCount = 1;
+					Data.Materials.push_back(RawData[1].Materials[0]); // random mat
+
+					Data.WorldMatrices.push_back(Matrix4D::Identity());
+
+					H2B::MESH M;
+					M.materialIndex = 0;
+					M.name = "nullptr";
+					M.drawInfo.indexCount = Frustum::GetFrustumIndexCount();
+					M.drawInfo.indexOffset = 0;
+
+					Data.Meshes.push_back(M);
+
+					RawData.push_back(Data);
+
+					StaticMeshes = World->Load(RawData);
+
+					DebugMeshes.push_back(StaticMeshes[StaticMeshes.size() - 1]);
+					StaticMeshes.pop_back();
+
+					SceneHasTextures = false;
+					for (uint32 i = 0; i < StaticMeshes.size(); ++i)
+					{
+						if (StaticMeshes[i].SupportsTextures())
+						{
+							SceneHasTextures = true;
+							break;
+						}
+					}
+				}
+
+				//StaticMeshes = World->Load();
+
+				{
+					if (SceneHasTextures)
+					{
+						VkRenderPass renderPass;
+						vlk.GetRenderPass((void**)&renderPass);
+
+						vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+						vkDestroyPipeline(device, Pipeline_Texture, nullptr);
+
+						std::vector<VkDescriptorSetLayout*> DescSetLayouts = World->GetShaderStorageDescSetLayouts();
+						PipelineCreator.SetLayoutCreateInfo(DescSetLayouts.size(), *DescSetLayouts.data());
+						PipelineCreator.CreatePipelineLayout(&device, pipelineLayout);
+						PipelineCreator.SetGraphicsPipelineCreateInfo(&pipelineLayout, &renderPass);
+
+						PipelineCreator.SetInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+						PipelineCreator.ClearStageCreateInfos();
+						PipelineCreator.AddNewStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, &VertexShader_Texture);
+						PipelineCreator.AddNewStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, &PixelShader_Texture);
+						PipelineCreator.CreateGraphicsPipelines(&device, Pipeline_Texture);
+
+						CurrentPipeline = &Pipeline_Texture;
+					}
+					else
+					{
+						CurrentPipeline = &Pipeline_Material;
+
+					}
+
+				}
+			}
 		}
 
 		if (!CaptureInput)
@@ -394,7 +640,6 @@ public:
 			MouseDeltaY = 0;
 		};
 
-		
 		{
 			if (Input.GetState(G_MOUSE_SCROLL_UP, MouseScrollUp) != GW::GReturn::SUCCESS)
 			{
@@ -416,7 +661,7 @@ public:
 		Controller.GetState(0, G_RY_AXIS, RightStickYAxis);
 		Controller.GetState(0, G_RX_AXIS, RightStickXAxis);
 
-		GMATRIXF GridViewMatrix = World->GetViewMatrix();
+		//GMATRIXF GridViewMatrix = ViewMatrix1;
 
 		// Calculate The Deltas 		
 		float DeltaX = DKeyState - AKeyState + LeftStickXAxis;
@@ -431,6 +676,7 @@ public:
 		float PerFrameSpeed = TimePassed * CameraSpeed;
 
 		// TODO: Part 4c
+		GW::MATH::GMATRIXF GridViewMatrix = World->GetViewMatrix1();
 		Matrix.InverseF(GridViewMatrix, GridViewMatrix);
 
 		// TODO: Part 4d -> Camera Movement Y
@@ -448,9 +694,9 @@ public:
 		CameraTranslateVector.z = DeltaZ * PerFrameSpeed;
 		Matrix.TranslateLocalF(CameraTranslationMatrix, CameraTranslateVector, CameraTranslationMatrix);
 		Matrix.MultiplyMatrixF(CameraTranslationMatrix, GridViewMatrix, GridViewMatrix);
-		
+
 		World->UpdateCameraWorldPosition(GridViewMatrix.row4);
-		
+
 		// TODO: Part 4f -> Pitch Rotation 
 		GMATRIXF PitchMatrix;
 		Matrix.IdentityF(PitchMatrix);
@@ -463,14 +709,87 @@ public:
 		GVECTORF CameraPosition = GridViewMatrix.row4;
 		Matrix.MultiplyMatrixF(GridViewMatrix, YawMatrix, GridViewMatrix);
 		GridViewMatrix.row4 = CameraPosition;
-		
 
-		// TODO: Part 4c
+		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
+		//Frustum CamF;
+		float AspectRatio = 0.0f;
+		vlk.GetAspectRatio(AspectRatio);
+#if 0 // kept for later 
+		//CamF.setCamInternals(65, AspectRatio, 1.0f, 1000.0f);
+		//Vector4D U = reinterpret_cast<Vector4D&>(GridViewMatrix.row2);
+		//Vector4D Ri = reinterpret_cast<Vector4D&>(GridViewMatrix.row1);
+		//Vector4D F = reinterpret_cast<Vector4D&>(GridViewMatrix.row3);
+		//Vector4D P = reinterpret_cast<Vector4D&>(GridViewMatrix.row4);
+		//
+		//
+		//float hh = tanf(65.0f * 0.5f) * 100.0f;
+		//float hw = hh * AspectRatio;
+		//
+		//float hhn = tanf(65.0f * 0.5f) * 10.0f;
+		//float hwn = hhn * AspectRatio;
+		//
+		//Vector3D FC = Vector3D(P.X, P.Y, P.Z) + Vector3D(F.X, F.Y, F.Z) * 100.0f;
+		//Vector3D NC = Vector3D(P.X, P.Y, P.Z) + Vector3D(F.X, F.Y, F.Z) * 100.0f;
+		//Vector3D UP = Vector3D(U.X, U.Y, U.Z);
+		//Vector3D Right = Vector3D(Ri.X, Ri.Y, Ri.Z);
+		//
+		//Vertex FTL = { {0,0}, {FC + (UP * hh * 0.5f) - (Right * hw * 0.5f)} };
+		//Vertex FTR = { {0,0}, {FC + (UP * hh * 0.5f) + (Right * hw * 0.5f)} };
+		//Vertex FBL = { {0,0}, {FC - (UP * hh * 0.5f) - (Right * hw * 0.5f)} };
+		//Vertex FBR = { {0,0}, {FC - (UP * hh * 0.5f) + (Right * hw * 0.5f)} };
+		//
+		//
+		//Vertex NTL = { {0,0}, {NC + (UP * hhn * 0.5f) - (Right * hwn * 0.5f)} };
+		//Vertex NTR = { {0,0}, {NC + (UP * hhn * 0.5f) + (Right * hwn * 0.5f)} };
+		//Vertex NBL = { {0,0}, {NC - (UP * hhn * 0.5f) - (Right * hwn * 0.5f)} };
+		//Vertex NBR = { {0,0}, {NC - (UP * hhn * 0.5f) + (Right * hwn * 0.5f)} };
+#endif
+		std::vector<Vertex>* Vertices = World->GetLevelData()->GetVertices();
+		CameraFrustum.SetFrustumInternals(AspectRatio, 65.0f, 10.0f, 100.0f);
+		CameraFrustum.CreateFrustum(GridViewMatrix, 1.0f, AspectRatio, 10.0f, 100.0f);
+
+		CameraFrustum.DebugUpdateVertices(Vertices->size() - Frustum::GetFrustumVertexCount(), Vertices);
+		World->GetLevelData()->UpdateVertexBuffer();
+
+		//uint32 RemovedGPUCalls = 0;
+		//for (uint32 i = 0; i < StaticMeshes.size() - 1; ++i)
+		//{
+		//	Vector4D Pp = StaticMeshes[i].GetTranslation();
+		//	if (!CamF.PointInFrustum(Vector3D(Pp.X, Pp.Y, Pp.Z)))
+		//	{
+		//		RemovedGPUCalls++;
+		//	}
+		//	//if (!CamFrustum.PointInFrustum(P.X, P.Y, P.Z))
+		//	//{
+		//	//	RemovedGPUCalls++;
+		//	//}
+		//}
+
+		//std::cout << "\n\n[Frustum Culling]: removed " << RemovedGPUCalls << " gpu draw calls...\n\n";
+
+		GW::MATH::GMATRIXF Mat = GW::MATH::GIdentityMatrixF;
+		Mat.row4 = GridViewMatrix.row4;
+		GW::MATH::GVECTORF Vec = {0.0, 0.0f, -250.0f,1.0f};
+		Matrix.RotateYGlobalF(Mat, Math::DegreesToRadians(90), Mat);
+		Matrix.TranslateLocalF(Mat, Vec, Mat);
+
+		//Vector4D T = reinterpret_cast<Vector4D&>(GridViewMatrix.row4);
+		//Vector4D R = reinterpret_cast<Vector4D&>(GridViewMatrix.row1);
+		//
+		//T += R * -100.0f;
+		//
+		//GW::MATH::GVECTORF Eye = reinterpret_cast<GW::MATH::GVECTORF&>(T);
+		//GW::MATH::GVECTORF Target = GridViewMatrix.row4;
+		//GW::MATH::GVECTORF Up = { 0.0f, 1.0f, 0.0f, 0.0f };
+		//Matrix.LookAtLHF(Eye, Target, Up, Mat);
+
 		Matrix.InverseF(GridViewMatrix, GridViewMatrix);
+		Matrix.InverseF(Mat, Mat);
 
-		World->SetViewMatrix(GridViewMatrix);
+		World->SetViewMatrix1(GridViewMatrix);
+		World->SetViewMatrix2(Mat);
 
-		std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+			std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 		using ms = std::chrono::duration<float, std::milli>;
 		TimePassed = std::chrono::duration_cast<ms>(end - begin).count();
 	}
@@ -481,10 +800,16 @@ private:
 		// wait till everything has completed
 		vkDeviceWaitIdle(device);
 		// Release allocated buffers, shaders & pipeline
-		vkDestroyShaderModule(device, vertexShader, nullptr);
-		vkDestroyShaderModule(device, pixelShader, nullptr);
+		vkDestroyShaderModule(device, VertexShader_Texture, nullptr);
+		vkDestroyShaderModule(device, VertexShader_Basic, nullptr);
+		vkDestroyShaderModule(device, VertexShader_Material, nullptr);
+		vkDestroyShaderModule(device, PixelShader_Basic, nullptr);
+		vkDestroyShaderModule(device, PixelShader_Texture, nullptr);
+		vkDestroyShaderModule(device, PixelShader_Material, nullptr);
 		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-		vkDestroyPipeline(device, pipeline, nullptr);
+		vkDestroyPipeline(device, Pipeline_Texture, nullptr);
+		vkDestroyPipeline(device, Pipeline_Debug, nullptr);
+		vkDestroyPipeline(device, Pipeline_Material, nullptr);
 
 		if (World)
 		{

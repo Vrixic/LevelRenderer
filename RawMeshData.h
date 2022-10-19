@@ -1,6 +1,5 @@
 #pragma once
 #include <string>
-#include <vector>
 #include "h2bParser.h"
 #include "Math/Matrix4D.h"
 
@@ -9,17 +8,16 @@
 struct RawMaterial
 {
 	H2B::ATTRIBUTES attrib;
-
 	std::string name;
-	std::string map_Kd; // Diffuse map
-	std::string map_Ks; // roughness map
-	std::string map_Ka; // ambient map
-	std::string map_Ke; // emissive map
-	std::string map_Ns; // specular 
-	std::string map_d; // dissolve map
+	std::string DiffuseMap; // Diffuse map - map_Kd
+	std::string RoughnessMap; // roughness map - map_Ks
+	std::string AmbientMap; // ambient map - map_Ka
+	std::string EmissiveMap; // emissive map - map_Ke
+	std::string SpecularMap; // specular  - map_Ns
+	std::string DissolveMap; // dissolve map - map_d
 	std::string disp;
 	std::string decal;
-	std::string bump; // Normal map
+	std::string NormalMap; // Normal map - bump
 	const void* padding[2];
 };
 
@@ -54,6 +52,9 @@ struct RawMeshData
 
 	LightType Light;
 
+	Vector3D BoxMin_AABB;
+	Vector3D BoxMax_AABB;
+
 	RawMeshData()
 	{
 		VertexCount = 0;
@@ -66,6 +67,9 @@ struct RawMeshData
 		IsLight = false;
 
 		Light = LightType::Point;
+
+		BoxMin_AABB = Vector3D::ZeroVector();
+		BoxMax_AABB = Vector3D::ZeroVector();
 	}
 };
 
@@ -86,6 +90,7 @@ struct Mesh
 	uint32 MaterialIndex;
 
 	int32 DiffuseTextureIndex;
+	int32 SpecularTextureIndex;
 
 	Mesh()
 	{
@@ -95,28 +100,6 @@ struct Mesh
 		MaterialIndex = 0;
 		DiffuseTextureIndex = 0;
 	}
-};
-
-/*
-* A Collection of Meshes in one
-*		IndexOffset -> index offset into the collection of meshes indices
-*		MaterialIndex -> Index of the first material into the collection of materials 
-*		WorldMatrixIndex -> index of the first world matrix into the collection of world matrices
-*/
-struct StaticMesh
-{
-	uint32 VertexCount;
-	uint32 IndexCount;
-	uint32 MaterialCount;
-	uint32 MeshCount;
-	uint32 InstanceCount;
-
-	uint32 VertexOffset;
-	uint32 IndexOffset;
-	uint32 MaterialIndex;
-	uint32 WorldMatrixIndex;
-
-	std::vector<Mesh> Meshes;
 };
 
 struct PointLight
@@ -143,8 +126,10 @@ struct SpotLight
 	/* W Component - spot light strength */
 	Vector4D Position;
 
-	/* W Component - cone ratio */
+	/* W Component - inner cone ratio */
 	Vector4D Color;
+
+	/* W component - outer cone ratio*/
 	Vector4D ConeDirection;
 
 	void AddStrength(float strength)
@@ -152,8 +137,13 @@ struct SpotLight
 		Position.W += strength;
 	}
 
-	void SetConeRatio(float ratio)
+	void SetInnerConeRatio(float ratio)
 	{
 		Color.W = ratio;
+	}
+
+	void SetOuterConeRatio(float ratio)
+	{
+		ConeDirection.W = ratio;
 	}
 };

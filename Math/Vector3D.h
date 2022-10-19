@@ -47,6 +47,8 @@ public:
 	inline Vector3D operator/=(const Vector3D& v);
 
 public:
+	inline static Vector3D ZeroVector();
+
 	inline static float DotProduct(const Vector3D& a, const Vector3D& b);
 
 	inline static Vector3D CrossProduct(const Vector3D& a, const Vector3D& b);
@@ -156,6 +158,11 @@ inline Vector3D Vector3D::operator/=(const Vector3D& v)
 	Z /= v.Z;
 
 	return *this;
+}
+
+inline Vector3D Vector3D::ZeroVector()
+{
+	return Vector3D(0.0f, 0.0f, 0.0f);
 }
 
 inline float Vector3D::DotProduct(const Vector3D& a, const Vector3D& b)

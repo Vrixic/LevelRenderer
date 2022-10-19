@@ -59683,6 +59683,8 @@ namespace GW
 						if (all_device_features.sampleRateShading)	device_features.sampleRateShading = VK_TRUE; //MSAA
 				}
 				
+				device_features.multiViewport = VK_TRUE;
+				
 				//Setup Logical device create info [*: Two different Queue Indices Check Needed]
 				VkDeviceCreateInfo create_info = {};
 				create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -59692,6 +59694,20 @@ namespace GW
 
 				create_info.enabledExtensionCount = m_DeviceExtensionCount;
 				create_info.ppEnabledExtensionNames = m_DeviceExtensions;
+
+				VkPhysicalDeviceDescriptorIndexingFeatures indexing_features = { };
+				indexing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT;
+				indexing_features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+				indexing_features.runtimeDescriptorArray = VK_TRUE;
+				indexing_features.descriptorBindingVariableDescriptorCount = VK_TRUE;
+				indexing_features.pNext = nullptr;
+
+				indexing_features.descriptorBindingPartiallyBound = VK_TRUE;
+				indexing_features.runtimeDescriptorArray = VK_TRUE;
+				indexing_features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+				
+				create_info.pNext = &indexing_features;
+
 
 				//Create the Surface (With Results) [VK_SUCCESS = 0]
 				VkResult r = vkCreateDevice(m_VkPhysicalDevice, &create_info, nullptr, &m_VkDevice);

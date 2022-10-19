@@ -5,6 +5,7 @@
 class Vector3D;
 class Vector4D;
 class Matrix4D;
+class Plane;
 
 #define PI (3.1415926535897932f)
 
@@ -58,4 +59,23 @@ public:
 	{
 		return static_cast<float>(((PI / 180.0f) * degrees));
 	}
+
+	/*
+	* true if any spheres intersected or are inside the planes
+	* false if they can be culled
+	*/
+	//inline static bool IntersectSpheresOnPlane(uint32 planeCount, 
+	//	const Plane* planes, const Vector3D& center, float radius)
+	//{
+	//	float negativeRadius = -radius;
+	//	for (uint32 i = 0; i < planeCount; ++i)
+	//	{
+	//		if (Plane::Dot(planes[i], center) <= negativeRadius)
+	//		{
+	//			return false;
+	//		}
+	//	}
+	//
+	//	return true;
+	//}
 };

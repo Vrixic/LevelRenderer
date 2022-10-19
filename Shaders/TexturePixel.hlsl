@@ -2,9 +2,9 @@
 #define MAX_LIGHTS_PER_DRAW 16
 
 [[vk::binding(0, 1)]]
-Texture2D DiffuseMap : register(t1);
+Texture2D DiffuseMap[] : register(t1);
 [[vk::binding(0, 1)]]
-SamplerState Sampler : register(s1);
+SamplerState Sampler[] : register(s1);
 
 struct Material
 {
@@ -17,8 +17,7 @@ struct Material
     float3 TransmissionFilter;
     float OpticalDensity;
     float3 Emissive;
-    uint IlluminationModel;
-    
+    uint IlluminationModel;    
 };
 
 struct PointLight
@@ -37,16 +36,18 @@ struct SpotLight
 
 	/* W Component - cone ratio */
     float4 Color;
+    
+    /* W component - outer cone ratio*/
     float4 ConeDirection;
 };
 
 struct SceneDataGlobal
 {
 	/* Globally shared model information */
-    float4x4 View;
+    float4x4 View[2];
     float4x4 Projection;
 
-	/* Lighting Information -> W for lightDir used for strength */
+	/* Lighting Information */
     float4 LightDirection;
     float4 LightColor;
     float4 SunAmbient;
@@ -76,8 +77,9 @@ cbuffer ConstantBuffer
 {
     uint MeshID;
     uint MaterialID;
+    uint DiffuseTextureID;
+    uint ViewMatID;
 };
-
 
 struct PixelIn
 {
@@ -126,14 +128,21 @@ float4 CalcSpotLight(uint spotLightIndex, float3 pixelPositionWorld, float3 surf
 
     float LightRatio = saturate(dot(SpotLightDir, surfaceNormal)) * SceneData[0].SpotLights[spotLightIndex].Position.w;
     
-    return SpotFactor * LightRatio * float4(SceneData[0].SpotLights[spotLightIndex].Color.xyz * diffuseColor.xyz, 1);
+    float InnerConeRatio = SceneData[0].SpotLights[spotLightIndex].Color.w;
+    float OuterConeRatio = SceneData[0].SpotLights[spotLightIndex].ConeDirection.w;
+    
+    // Attenuation calculation
+    float Attenuation = 1.0f - saturate((InnerConeRatio - SurfaceRatio) / (InnerConeRatio - OuterConeRatio));
+    Attenuation *= Attenuation;
+    
+    return Attenuation * SpotFactor * LightRatio * float4(SceneData[0].SpotLights[spotLightIndex].Color.xyz * diffuseColor.xyz, 1);
 }
 
 // an ultra simple hlsl pixel shader
 // TODO: Part 4b
 float4 main(PixelIn input) : SV_TARGET
 {
-    float4 DiffuseColor = DiffuseMap.Sample(Sampler, input.UV);
+    float4 DiffuseColor = DiffuseMap[DiffuseTextureID].Sample(Sampler[DiffuseTextureID], input.UV);
     float3 SurfaceNormal = normalize(input.Normal);
     float3 LightDirection = SceneData[0].LightDirection.xyz;
     

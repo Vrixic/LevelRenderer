@@ -1,6 +1,7 @@
 #pragma pack_matrix(row_major)
 
 #define MAX_SUBMESH_PER_DRAW 512
+#define MAX_LIGHTS_PER_DRAW 16
 
 struct Material
 {
@@ -16,10 +17,31 @@ struct Material
     uint IlluminationModel;
 };
 
+struct PointLight
+{
+	/* W component is used for strength of the point light */
+    float4 Position;
+
+	/* W component is used for attenuation */
+    float4 Color;
+};
+
+struct SpotLight
+{
+    /* W Component - spot light strength */
+    float4 Position;
+
+	/* W Component - cone ratio */
+    float4 Color;
+    
+    /* W component - outer cone ratio*/
+    float4 ConeDirection;
+};
+
 struct SceneDataGlobal
 {
 	/* Globally shared model information */
-    float4x4 View;
+    float4x4 View[2];
     float4x4 Projection;
 
 	/* Lighting Information */
@@ -31,6 +53,16 @@ struct SceneDataGlobal
     /* Per sub-mesh transform and material data */
     float4x4 Matrices[MAX_SUBMESH_PER_DRAW]; // World space matrices
     Material Materials[MAX_SUBMESH_PER_DRAW]; // color/texture of surface info of all meshes
+    
+    PointLight PointLights[MAX_LIGHTS_PER_DRAW];
+
+    SpotLight SpotLights[MAX_LIGHTS_PER_DRAW];
+
+	/* 16-byte padding for the lights,
+	* X component -> num of point lights
+	* Y component -> num of spot lights
+	*/
+    float4 NumOfLights;
 };
 
 /* Declare and access a Vulkan storage buffer in hlsl */
@@ -42,6 +74,8 @@ cbuffer ConstantBuffer
 {
     uint MeshID;
     uint MaterialID;
+    uint DiffuseTextureID;
+    uint ViewMatID;
 };
 
 struct VertexIn
@@ -71,11 +105,11 @@ VertexOut main(VertexIn inputVertex)
     
     output.Position = mul(output.Position, SceneData[0].Matrices[MeshID + inputVertex.InstanceID]);
     output.PositionWorld = output.Position;
-    output.Position = mul(output.Position, SceneData[0].View);
+    output.Position = mul(output.Position, SceneData[0].View[ViewMatID]);
     output.Position = mul(output.Position, SceneData[0].Projection);
     
     output.Color = inputVertex.Color;
-    output.Normal = inputVertex.Normal;
+    output.Normal = mul(float4(inputVertex.Normal, 0.0f), SceneData[0].Matrices[MeshID + inputVertex.InstanceID]).xyz;
     output.UV = inputVertex.UV;
     
     return output;
