@@ -2,6 +2,48 @@
 #include <iostream>
 #include <unordered_map>
 
+#include <windows.h>
+#include <ShObjIdl.h>
+
+#include <sstream>
+
+bool FileHelper::OpenFileDialog(std::string& outFilePath)
+{
+	HRESULT Result = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED |
+		COINIT_DISABLE_OLE1DDE);
+	IFileOpenDialog* FileOpenDialog;
+
+	// Create the dialog object
+	Result = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL,
+		IID_IFileOpenDialog, reinterpret_cast<void**>(&FileOpenDialog));
+
+	if (SUCCEEDED(Result))
+	{
+		// Show the open dialog box
+		Result = FileOpenDialog->Show(NULL);
+
+		// Get the file name from the dialog box
+		if (SUCCEEDED(Result))
+		{
+			IShellItem* ShellItem;
+			Result = FileOpenDialog->GetResult(&ShellItem);
+
+			if (SUCCEEDED(Result))
+			{
+				PWSTR FilePath;
+				Result = ShellItem->GetDisplayName(SIGDN_FILESYSPATH, &FilePath);
+
+				// convert pointer to wide string to char* to std::string
+				std::wstring WideFilePath = FilePath;
+				outFilePath = std::string(WideFilePath.begin(), WideFilePath.end());
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 std::string FileHelper::LoadShaderFileIntoString(const char* shaderFilePath)
 {
 	std::ifstream FileHandle(shaderFilePath);
@@ -170,17 +212,17 @@ void FileHelper::ReadGameLevelFile(const char* path, std::vector<RawMeshData>& M
 
 				Line = Line.length() == 0 ? LineCopy : Line;
 
-//				if (std::strcmp(Line.c_str(), "Point") != 0)
-//				{
-//#if DEBUG
-//					std::cout << "[FileHelper]: A light was found and discarded...\n";
-//
-//					std::getline(FileHandle, Line, '>');
-//					std::cout << Line << ">";
-//					std::getline(FileHandle, Line);
-//					std::cout << Line;
-//#endif // DEBUG
-//				}				
+				//				if (std::strcmp(Line.c_str(), "Point") != 0)
+				//				{
+				//#if DEBUG
+				//					std::cout << "[FileHelper]: A light was found and discarded...\n";
+				//
+				//					std::getline(FileHandle, Line, '>');
+				//					std::cout << Line << ">";
+				//					std::getline(FileHandle, Line);
+				//					std::cout << Line;
+				//#endif // DEBUG
+				//				}				
 
 				RawMeshData EmptyMesh;
 				EmptyMesh.Name = Line;
@@ -296,11 +338,55 @@ bool FileHelper::FillRawMeshDataFromH2BFile(const char* filePath, H2B::Parser* p
 		outMesh.Vertices = parser->vertices;
 		outMesh.Indices = parser->indices;
 
+		float MinX = FLT_MAX;
+		float MinY = FLT_MAX;
+		float MinZ = FLT_MAX;
+
+		float MaxX = FLT_MIN;
+		float MaxY = FLT_MIN;
+		float MaxZ = FLT_MIN;
+
+		/* Aabb*/
+		for (uint32 i = 0; i < parser->vertexCount; ++i)
+		{
+			H2B::VECTOR Position = parser->vertices[i].pos;
+
+			if (Position.x < MinX)
+			{
+				MinX = Position.x;
+			}
+			if (Position.y < MinY)
+			{
+				MinY = Position.y;
+			}
+			if (Position.z < MinZ)
+			{
+				MinZ = Position.z;
+			}
+
+			if (Position.x > MaxX)
+			{
+				MaxX = Position.x;
+			}
+			if (Position.y > MaxY)
+			{
+				MaxY = Position.y;
+			}
+			if (Position.z > MaxZ)
+			{
+				MaxZ = Position.z;
+			}
+		}
+
+		outMesh.BoxMin_AABB = Vector3D(MinX, MinY, MinZ);
+		outMesh.BoxMax_AABB = Vector3D(MaxX, MaxY, MaxZ);
+
 		for (uint32 i = 0; i < parser->materialCount; ++i)
 		{
 			RawMaterial Mat;
 			Mat.attrib = parser->materials[i].attrib;
-			Mat.map_Kd = std::string(parser->materials[i].map_Kd == nullptr ? "" : parser->materials[i].map_Kd);
+			Mat.DiffuseMap = std::string(parser->materials[i].map_Kd == nullptr ? "" : parser->materials[i].map_Kd);
+			Mat.SpecularMap = std::string(parser->materials[i].map_Ks == nullptr ? "" : parser->materials[i].map_Ks);
 			outMesh.Materials.push_back(Mat);
 		}
 

@@ -85,6 +85,10 @@ public:
 	inline Matrix4D GetProjectionMatrix(unsigned int windowWidth, unsigned int windowHeight, float verticalFOV, float nearPlane, float farPlane) const;	
 	
 	inline Matrix4D OrthogonalInverseMatrix(Matrix4D const& m) const;
+
+	inline Vector3D GetEulerAngles() const;
+
+	inline Vector3D GetLocalScale() const;
 };
 
 inline Matrix4D::Matrix4D()
@@ -245,10 +249,10 @@ inline void Matrix4D::ScaleMatrix(const Vector3D& scale)
 	M[2][2] += scale.Z;
 }
 
-inline Matrix4D Matrix4D::MakeRotX(float angleInRads)
+inline Matrix4D Matrix4D::MakeRotX(float degrees)
 {
-	float C = cos(angleInRads);
-	float S = sin(angleInRads);
+	float C = cos(Math::DegreesToRadians(degrees));
+	float S = sin(Math::DegreesToRadians(degrees));
 
 	return Matrix4D
 	(
@@ -259,10 +263,10 @@ inline Matrix4D Matrix4D::MakeRotX(float angleInRads)
 	);
 }
 
-inline Matrix4D Matrix4D::MakeRotY(float angleInRads)
+inline Matrix4D Matrix4D::MakeRotY(float degrees)
 {
-	float C = cos(angleInRads);
-	float S = sin(angleInRads);
+	float C = cos(Math::DegreesToRadians(degrees));
+	float S = sin(Math::DegreesToRadians(degrees));
 
 	return Matrix4D
 	(
@@ -273,10 +277,10 @@ inline Matrix4D Matrix4D::MakeRotY(float angleInRads)
 	);
 }
 
-inline Matrix4D Matrix4D::MakeRotZ(float angleInRads)
+inline Matrix4D Matrix4D::MakeRotZ(float degrees)
 {
-	float C = cos(angleInRads);
-	float S = sin(angleInRads);
+	float C = cos(Math::DegreesToRadians(degrees));
+	float S = sin(Math::DegreesToRadians(degrees));
 
 	return Matrix4D
 	(
@@ -287,11 +291,12 @@ inline Matrix4D Matrix4D::MakeRotZ(float angleInRads)
 	);
 }
 
+/* X -> pitch, Y -> yaw, Z -> roll*/
 inline Matrix4D Matrix4D::MakeRotation(const Vector3D& rotation)
 {
 	Matrix4D RotX = MakeRotX(rotation.X);
-	Matrix4D RotY = MakeRotX(rotation.Y);
-	Matrix4D RotZ = MakeRotX(rotation.Z);
+	Matrix4D RotY = MakeRotY(rotation.Y);
+	Matrix4D RotZ = MakeRotZ(rotation.Z);
 	Matrix4D Result;
 
 	VectorRegisterMatrixMultiply(&Result, &RotX, &RotY);
@@ -368,7 +373,6 @@ inline Matrix4D Matrix4D::GetProjectionMatrix(unsigned int windowWidth, unsigned
 	return ProjectionMatrix;
 }
 
-
 inline Matrix4D Matrix4D::OrthogonalInverseMatrix(Matrix4D const& m) const
 {
 	// Transpose matrix 3x3
@@ -390,4 +394,24 @@ inline Matrix4D Matrix4D::OrthogonalInverseMatrix(Matrix4D const& m) const
 	result.SetTranslation(Vector3D(positionVector.X, positionVector.Y, positionVector.Z));
 
 	return result;
+}
+
+inline Vector3D Matrix4D::GetEulerAngles() const
+{
+	Vector3D Result;
+
+	Result.X = atan2(M[2][1], M[2][2]);
+
+	float r32 = M[2][1] * M[2][1];
+	float r33 = M[2][2] * M[2][2];
+
+	Result.Y = atan2(-M[2][0], sqrt(r32 + r33));
+	Result.Z = atan2(M[1][0], M[0][0]);
+
+	return Result;
+}
+
+inline Vector3D Matrix4D::GetLocalScale() const
+{
+	return Vector3D(M[0][0], M[1][1], M[2][2]);
 }

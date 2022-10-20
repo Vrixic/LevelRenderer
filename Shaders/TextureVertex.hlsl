@@ -39,7 +39,7 @@ struct SpotLight
 struct SceneDataGlobal
 {
 	/* Globally shared model information */
-    float4x4 View;
+    float4x4 View[3];
     float4x4 Projection;
 
 	/* Lighting Information */
@@ -72,6 +72,10 @@ cbuffer ConstantBuffer
 {
     uint MeshID;
     uint MaterialID;
+    uint DiffuseTextureID;
+    uint ViewMatID;
+    
+    float3 Color;
 };
 
 struct VertexIn
@@ -101,11 +105,11 @@ VertexOut main(VertexIn inputVertex)
     
     output.Position = mul(output.Position, SceneData[0].Matrices[MeshID + inputVertex.InstanceID]);
     output.PositionWorld = output.Position;
-    output.Position = mul(output.Position, SceneData[0].View);
+    output.Position = mul(output.Position, SceneData[0].View[ViewMatID]);
     output.Position = mul(output.Position, SceneData[0].Projection);
     
     output.Color = inputVertex.Color;
-    output.Normal = inputVertex.Normal;
+    output.Normal = mul(float4(inputVertex.Normal, 0.0f), SceneData[0].Matrices[MeshID + inputVertex.InstanceID]).xyz;
     output.UV = inputVertex.UV;
     
     return output;

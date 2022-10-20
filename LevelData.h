@@ -39,6 +39,11 @@ private:
 	std::vector<uint32> Indices;
 	std::vector<Matrix4D> WorldMatrices;
 
+public:
+	uint32 DebugBoxVertexStart;
+	uint32 DebugBoxIndexStart;
+
+private:
 	uint32 TotalVertices;
 	uint32 TotalIndices;
 
@@ -62,6 +67,7 @@ public:
 
 		TotalIndices = 0;
 		TotalVertices = 0;
+		DebugBoxVertexStart = 0;
 
 		for (uint32 i = 0; i < rawMeshDatas.size(); ++i)
 		{
@@ -72,6 +78,55 @@ public:
 
 			AddRawMeshData(rawMeshDatas[i]);
 		}
+
+		DebugBoxVertexStart = TotalVertices;
+		DebugBoxIndexStart = TotalIndices;
+
+		for (uint32 i = 0; i < rawMeshDatas.size() - 1; ++i)
+		{
+			if (rawMeshDatas[i].IsCamera || rawMeshDatas[i].IsLight)
+			{
+				continue;
+			}
+
+			/* Debug boxes */
+			{
+				RawMeshData rawMeshData = rawMeshDatas[i];
+			
+				Vector3D Min = rawMeshData.BoxMin_AABB;
+				Vector3D Max = rawMeshData.BoxMax_AABB;
+			
+				Vector3D BoxVerts[8] =
+				{
+					Min, Vector3D(Min.X, Min.Y, Max.Z), Vector3D(Max.X, Min.Y, Max.Z), Vector3D(Max.X, Min.Y, Min.Z),
+					Vector3D(Min.X,Max.Y,Min.Z), Vector3D(Min.X,Max.Y, Max.Z), Max, Vector3D(Max.X, Max.Y, Min.Z)
+				};
+			
+				uint32 BoxIndices[24] =
+				{
+					0, 1, 1, 2, 2, 3, 3, 0,
+					4, 5, 5, 6, 6, 7, 7, 4,
+					0, 4, 1, 5, 2, 6, 3, 7
+				};
+			
+				TotalVertices += 8;
+				Vertex V = { };
+				V.Color = Vector4D(0.0f, 1.0f, 0.0f, 1.0f);
+				for (uint32 i = 0; i < 8; ++i)
+				{
+					V.Position = BoxVerts[i];
+					Vertices.push_back(V);
+				}
+			
+				TotalIndices += 24;
+				for (uint32 i = 0; i < 24; ++i)
+				{
+					Indices.push_back(BoxIndices[i]);
+				}
+			}
+		}
+
+		//AddRawMeshData(rawMeshDatas[rawMeshDatas.size() - 1]);
 	}
 
 	LevelData() = delete;
@@ -148,6 +203,17 @@ public:
 		}
 	}
 
+	std::vector<Vertex>* GetVertices()
+	{
+		return &Vertices;
+	}
+
+	void UpdateVertexBuffer()
+	{
+		uint32 VerticesSizeInBytes = sizeof(Vertex) * Vertices.size();
+		GvkHelper::write_to_buffer(*Device, VertexBufferData, Vertices.data(), VerticesSizeInBytes);
+	}
+
 private:
 	void LoadVertexData()
 	{
@@ -208,4 +274,5 @@ private:
 			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &IndexBufferHandle, &IndexBufferData);
 		GvkHelper::write_to_buffer(*Device, IndexBufferData, Indices.data(), IndicesSizeInBytes);
 	}
+
 };

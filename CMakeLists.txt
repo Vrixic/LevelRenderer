@@ -22,6 +22,7 @@ if (WIN32)
 		RawMeshData.h 
 		VulkanStorageBuffer.h 
 		FileHelper.cpp 
+		Shaders/TexturePixel.hlsl
 	)
 	target_include_directories(LevelRenderer PUBLIC $ENV{VULKAN_SDK}/Include/)
 	target_link_directories(LevelRenderer PUBLIC $ENV{VULKAN_SDK}/Lib/)
@@ -59,6 +60,9 @@ endif(APPLE)
 
 # add support for ktx texture loading
 include_directories(${CMAKE_SOURCE_DIR}/ktx/include)
+
+# add support for ktx texture loading
+include_directories(${CMAKE_SOURCE_DIR}/imgui)
 
 if (WIN32)
 	# Find the libraries

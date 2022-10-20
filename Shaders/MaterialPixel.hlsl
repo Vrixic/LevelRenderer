@@ -1,4 +1,5 @@
 #define MAX_SUBMESH_PER_DRAW 512
+#define MAX_LIGHTS_PER_DRAW 16
 
 struct Material
 {
@@ -14,10 +15,31 @@ struct Material
     uint IlluminationModel;
 };
 
+struct PointLight
+{
+	/* W component is used for strength of the point light */
+    float4 Position;
+
+	/* W component is used for attenuation */
+    float4 Color;
+};
+
+struct SpotLight
+{
+    /* W Component - spot light strength */
+    float4 Position;
+
+	/* W Component - cone ratio */
+    float4 Color;
+    
+    /* W component - outer cone ratio*/
+    float4 ConeDirection;
+};
+
 struct SceneDataGlobal
 {
 	/* Globally shared model information */
-    float4x4 View;
+    float4x4 View[3];
     float4x4 Projection;
 
 	/* Lighting Information */
@@ -29,6 +51,16 @@ struct SceneDataGlobal
     /* Per sub-mesh transform and material data */
     float4x4 Matrices[MAX_SUBMESH_PER_DRAW]; // World space matrices
     Material Materials[MAX_SUBMESH_PER_DRAW]; // color/texture of surface info of all meshes
+    
+    PointLight PointLights[MAX_LIGHTS_PER_DRAW];
+
+    SpotLight SpotLights[MAX_LIGHTS_PER_DRAW];
+
+	/* 16-byte padding for the lights,
+	* X component -> num of point lights
+	* Y component -> num of spot lights
+	*/
+    float4 NumOfLights;
 };
 
 /* Declare and access a Vulkan storage buffer in hlsl */
@@ -40,8 +72,11 @@ cbuffer ConstantBuffer
 {
     uint MeshID;
     uint MaterialID;
+    uint DiffuseTextureID;
+    uint ViewMatID;
+    
+    float3 Color;
 };
-
 
 struct PixelIn
 {
@@ -63,14 +98,12 @@ float4 main(PixelIn input) : SV_TARGET
     
     /* Specular Component */
     float4 ReflectedLight = float4(0, 0, 0, 0);
-    if (SceneData[0].Materials[MaterialID].SpecularExponent != 0)
-    {
-        float3 ViewDirection = normalize(SceneData[0].CameraWorldPosition.xyz - input.PositionWorld);
-        float3 HalfVector = normalize(reflect(LightDirection, SurfaceNormal));
-        float Intensity = max(pow(saturate(dot(ViewDirection, HalfVector)), SceneData[0].Materials[MaterialID].SpecularExponent), 0);
-        
-        ReflectedLight = float4(SceneData[0].Materials[MaterialID].SpecularColor, 1.0f) * 1.0f * Intensity;
-    }
+    float3 ViewDirection = normalize(SceneData[0].CameraWorldPosition.xyz - input.PositionWorld);
+    float3 HalfVector = normalize(reflect(LightDirection, SurfaceNormal));
+    float SpecularExponent = (SceneData[0].Materials[MaterialID].SpecularExponent != 0) ? SceneData[0].Materials[MaterialID].SpecularExponent : 96;
+    float Intensity = max(pow(saturate(dot(ViewDirection, HalfVector)), SpecularExponent), 0);
+    ReflectedLight = float4(SceneData[0].Materials[MaterialID].SpecularColor, 1.0f) * 1.0f * Intensity;
     
-    return saturate(LightRatio * SceneData[0].LightColor + SceneData[0].SunAmbient) * DiffuseColor + ReflectedLight;
+    return saturate(LightRatio * SceneData[0].LightColor + SceneData[0].SunAmbient) * DiffuseColor +
+ReflectedLight;
 }

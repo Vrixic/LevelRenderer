@@ -10,6 +10,8 @@ struct FileHelper
 {
 public:
 
+	static bool OpenFileDialog(std::string& outFilePath);
+
 	// Load a shader file as a string of characters.
 	static std::string LoadShaderFileIntoString(const char* shaderFilePath);
 
