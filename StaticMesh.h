@@ -42,15 +42,10 @@ private:
 	Vector3D Rotation;
 	Vector3D Scale_;
 
-<<<<<<< HEAD
 public:
 	Vector3D MinBox_AABB;
 	Vector3D MaxBox_AABB;
 	Vector3D Color_AABB;
-=======
-	Vector3D MinBox_AABB;
-	Vector3D MaxBox_AABB;
->>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 
 public:
 	StaticMesh(bool hasMaterials, bool hasTextures, uint32 vertexCount, uint32 indexCount, uint32 materialCount,

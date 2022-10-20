@@ -49,11 +49,7 @@ struct Texture
 struct SceneData
 {
 	/* Globally shared model information */
-<<<<<<< HEAD
 	Matrix4D View[3];
-=======
-	Matrix4D View[2];
->>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 	Matrix4D Projection;
 
 	/* Lighting Information */
@@ -187,7 +183,6 @@ public:
 
 		return Load(RawData);
 	}
-<<<<<<< HEAD
 
 	std::vector<StaticMesh> Load(std::vector<RawMeshData>& rawData)
 	{
@@ -203,22 +198,6 @@ public:
 		SetupGlobalSceneDataVars(rawData, StaticMeshes);
 		WorldData = new LevelData(Device, VlkSurface, rawData);
 
-=======
-
-	std::vector<StaticMesh> Load(std::vector<RawMeshData>& rawData)
-	{
-		if (IsDataLoaded)
-		{
-			std::cout << "\n[Level]: " << Name << " is already loaded in.. Failed to load!";
-			return { };
-		}
-
-		/* Load the file */
-		std::vector<StaticMesh> StaticMeshes;
-		SetupGlobalSceneDataVars(rawData, StaticMeshes);
-
-		WorldData = new LevelData(Device, VlkSurface, rawData);
->>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 		WorldData->Load();
 
 		/*  ----  */
@@ -452,15 +431,12 @@ public:
 		return Mat;
 	}
 
-<<<<<<< HEAD
 	GW::MATH::GMATRIXF GetViewMatrix3()
 	{
 		GW::MATH::GMATRIXF Mat = reinterpret_cast<GW::MATH::GMATRIXF&>(ShaderSceneData->View[2]);
 		return Mat;
 	}
 
-=======
->>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 	void SetViewMatrix1(GW::MATH::GMATRIXF& mat)
 	{
 		ShaderSceneData->View[0] = reinterpret_cast<Matrix4D&>(mat.data);
@@ -469,14 +445,11 @@ public:
 	void SetViewMatrix2(GW::MATH::GMATRIXF& mat)
 	{
 		ShaderSceneData->View[1] = reinterpret_cast<Matrix4D&>(mat.data);
-<<<<<<< HEAD
 	}
 
 	void SetViewMatrix3(GW::MATH::GMATRIXF& mat)
 	{
 		ShaderSceneData->View[2] = reinterpret_cast<Matrix4D&>(mat.data);
-=======
->>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 	}
 
 	void UpdateCameraWorldPosition(GW::MATH::GVECTORF& mat)
@@ -718,11 +691,8 @@ private:
 
 		ShaderSceneData->View[0] = reinterpret_cast<Matrix4D&>(View);
 		ShaderSceneData->View[1] = reinterpret_cast<Matrix4D&>(View);
-<<<<<<< HEAD
 		ShaderSceneData->View[2] = reinterpret_cast<Matrix4D&>(View);
 
-=======
->>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 		ShaderSceneData->Projection = reinterpret_cast<Matrix4D&>(Projection);
 
 		Vector3D DirLight(0.0f, -0.6899f, -0.7239f);
@@ -829,13 +799,10 @@ private:
 				rawData[i].VertexCount, rawData[i].IndexCount, rawData[i].MaterialCount, MaterialOffset,
 				rawData[i].MeshCount, rawData[i].InstanceCount, WorldMatricesOffset,
 				&ShaderSceneData->WorldMatrices[WorldMatricesOffset]));
-<<<<<<< HEAD
 
 			/* Make the debug box for the mesh */
 			//outStaticMeshes[StaticMeshIndex].DebugVertexStart = WorldData->DebugBoxVertexStart + (StaticMeshIndex * 8);
 			//outStaticMeshes[StaticMeshIndex].DebugVertexStart = WorldData->DebugBoxIndexStart + (StaticMeshIndex * 24);
-=======
->>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 
 			uint32 TexOffsetPerMesh = 0; // This offset keeps in track of how many meshes actually had a texture
 			for (uint32 j = 0; j < rawData[i].MeshCount; ++j)

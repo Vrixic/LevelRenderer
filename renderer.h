@@ -19,11 +19,8 @@ struct ConstantBuffer
 	uint32 DiffuseTextureID;
 
 	uint32 ViewMatID;
-<<<<<<< HEAD
 
 	Vector3D Color;
-=======
->>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 };
 
 #define GREEN Vector3D(0,1,0)
@@ -85,10 +82,6 @@ public:
 
 	bool isCamView1MainCamera = true;
 	bool isCamView2MainCamera = true;
-
-	std::vector<StaticMesh> DebugMeshes;
-
-	bool SceneHasTextures = false;
 
 	Renderer(GW::SYSTEM::GWindow _win, GW::GRAPHICS::GVulkanSurface _vlk)
 	{
@@ -359,13 +352,10 @@ public:
 		{
 			CurrentPipeline = &Pipeline_Material;
 		}
-<<<<<<< HEAD
 
 		CameraView1 = World->GetViewMatrix1();
 		CameraView2 = World->GetViewMatrix2();
 		CameraView3 = World->GetViewMatrix3();
-=======
->>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 
 		/***************** CLEANUP / SHUTDOWN ******************/
 		// GVulkanSurface will inform us when to release any allocated resources
@@ -416,7 +406,6 @@ public:
 
 		for (uint32 i = 0; i < RenderMeshes.size(); ++i)
 		{
-<<<<<<< HEAD
 			Buffer.MeshID = RenderMeshes[i].GetWorldMatrixIndex();
 
 			for (uint32 j = 0; j < RenderMeshes[i].GetMeshCount(); ++j)
@@ -424,21 +413,10 @@ public:
 				Buffer.MaterialID = RenderMeshes[i].GetMaterialIndex() + RenderMeshes[i].GetSubMeshMaterialIndex(j);
 				Buffer.DiffuseTextureID = RenderMeshes[i].GetSubMeshTextureIndex(j);
 				Buffer.ViewMatID = 0;
-=======
-			Buffer.MeshID = StaticMeshes[i].GetWorldMatrixIndex();
-
-			for (uint32 j = 0; j < StaticMeshes[i].GetMeshCount(); ++j)
-			{
-				Buffer.MaterialID = StaticMeshes[i].GetMaterialIndex() + StaticMeshes[i].GetSubMeshMaterialIndex(j);
-				Buffer.DiffuseTextureID = StaticMeshes[i].GetSubMeshTextureIndex(j);
-				Buffer.ViewMatID = 0;
-				//World->BindTexture(StaticMeshes[i].GetSubMeshTextureIndex(j));
->>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 
 				vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
 					VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ConstantBuffer), &Buffer);
 				vkCmdDrawIndexed(commandBuffer,
-<<<<<<< HEAD
 					RenderMeshes[i].GetSubMeshIndexCount(j),
 					RenderMeshes[i].GetInstanceCount(),
 					IndexCount + RenderMeshes[i].GetSubMeshIndexOffset(j),
@@ -447,79 +425,6 @@ public:
 
 			VertexCount += RenderMeshes[i].GetVertexCount();
 			IndexCount += RenderMeshes[i].GetIndexCount();
-=======
-					StaticMeshes[i].GetSubMeshIndexCount(j),
-					StaticMeshes[i].GetInstanceCount(),
-					IndexCount + StaticMeshes[i].GetSubMeshIndexOffset(j),
-					VertexCount, 0);
-			}
-
-			VertexCount += StaticMeshes[i].GetVertexCount();
-			IndexCount += StaticMeshes[i].GetIndexCount();
-		}
-
-		viewport.x = 50;
-		viewport.y = 50;
-		viewport.width = 150;
-		viewport.height = 150;
-		scissor.offset.x = 50;
-		scissor.offset.y = 50;
-		scissor.extent.width = 150;
-		scissor.extent.height = 150;
-
-		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-		VertexCount = 0;
-		IndexCount = 0;	
-		
-		//vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *CurrentPipeline);
-		
-		for (uint32 i = 0; i < StaticMeshes.size(); ++i)
-		{
-			Buffer.MeshID = StaticMeshes[i].GetWorldMatrixIndex();
-		
-			for (uint32 j = 0; j < StaticMeshes[i].GetMeshCount(); ++j)
-			{
-				Buffer.MaterialID = StaticMeshes[i].GetMaterialIndex() + StaticMeshes[i].GetSubMeshMaterialIndex(j);
-				Buffer.DiffuseTextureID = StaticMeshes[i].GetSubMeshTextureIndex(j);
-				Buffer.ViewMatID = 1;
-				//World->BindTexture(StaticMeshes[i].GetSubMeshTextureIndex(j));
-		
-				vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
-					VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ConstantBuffer), &Buffer);
-				vkCmdDrawIndexed(commandBuffer,
-					StaticMeshes[i].GetSubMeshIndexCount(j),
-					StaticMeshes[i].GetInstanceCount(),
-					IndexCount + StaticMeshes[i].GetSubMeshIndexOffset(j),
-					VertexCount, 0);
-			}
-		
-			VertexCount += StaticMeshes[i].GetVertexCount();
-			IndexCount += StaticMeshes[i].GetIndexCount();
-		}
-
-		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Pipeline_Debug);
-
-		for (uint32 i = 0; i < DebugMeshes.size(); ++i)
-		{
-			Buffer.MeshID = DebugMeshes[i].GetWorldMatrixIndex();
-			Buffer.ViewMatID = 1;
-		
-			for (uint32 j = 0; j < DebugMeshes[i].GetMeshCount(); ++j)
-			{		
-				vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
-					VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ConstantBuffer), &Buffer);
-				vkCmdDrawIndexed(commandBuffer,
-					DebugMeshes[i].GetSubMeshIndexCount(j),
-					DebugMeshes[i].GetInstanceCount(),
-					IndexCount,
-					VertexCount, 0);
-			}
-		
-			VertexCount += DebugMeshes[i].GetVertexCount();
-			IndexCount += DebugMeshes[i].GetIndexCount();
->>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 		}
 
 		viewport.x = 50;
@@ -764,13 +669,10 @@ public:
 					}
 				}
 
-<<<<<<< HEAD
 				CameraView1 = World->GetViewMatrix1();
 				CameraView2 = World->GetViewMatrix2();
 				CameraView3 = World->GetViewMatrix3();
 
-=======
->>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 				//StaticMeshes = World->Load();
 
 				{
@@ -803,7 +705,6 @@ public:
 
 				}
 			}
-<<<<<<< HEAD
 		}
 
 		if (Input.GetState(G_KEY_L, LKeyState) == GW::GReturn::SUCCESS && LKeyState > 0)
@@ -814,8 +715,6 @@ public:
 		if (Input.GetState(G_KEY_U, UKeyState) == GW::GReturn::SUCCESS && UKeyState > 0)
 		{
 			CaptureInput = !true;
-=======
->>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 		}
 
 		if (!CaptureInput)
@@ -850,12 +749,8 @@ public:
 		Controller.GetState(0, G_RY_AXIS, RightStickYAxis);
 		Controller.GetState(0, G_RX_AXIS, RightStickXAxis);
 
-<<<<<<< HEAD
 		
 		GW::MATH::GMATRIXF* CamViewMatrix;
-=======
-		//GMATRIXF GridViewMatrix = ViewMatrix1;
->>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 
 		if (OneKeyState > 0.0f)
 		{
@@ -904,15 +799,10 @@ public:
 		float PerFrameSpeed = TimePassed * CameraSpeed;
 
 		// TODO: Part 4c
-<<<<<<< HEAD
 		//GW::MATH::GMATRIXF GridViewMatrix = World->GetViewMatrix1();
 		Matrix.InverseF(CameraView1, CameraView1);
 		Matrix.InverseF(CameraView2, CameraView2);
 		Matrix.InverseF(CameraView3, CameraView3);
-=======
-		GW::MATH::GMATRIXF GridViewMatrix = World->GetViewMatrix1();
-		Matrix.InverseF(GridViewMatrix, GridViewMatrix);
->>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 
 		// TODO: Part 4d -> Camera Movement Y
 		GMATRIXF CameraTranslationMatrix;
@@ -928,15 +818,9 @@ public:
 		CameraTranslateVector.x = DeltaX * PerFrameSpeed;
 		CameraTranslateVector.z = DeltaZ * PerFrameSpeed;
 		Matrix.TranslateLocalF(CameraTranslationMatrix, CameraTranslateVector, CameraTranslationMatrix);
-<<<<<<< HEAD
 		Matrix.MultiplyMatrixF(CameraTranslationMatrix, *CamViewMatrix, *CamViewMatrix);
 
 		World->UpdateCameraWorldPosition(CamViewMatrix->row4);
-=======
-		Matrix.MultiplyMatrixF(CameraTranslationMatrix, GridViewMatrix, GridViewMatrix);
-
-		World->UpdateCameraWorldPosition(GridViewMatrix.row4);
->>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 
 		// TODO: Part 4f -> Pitch Rotation 
 		GMATRIXF PitchMatrix;
@@ -947,7 +831,6 @@ public:
 		GMATRIXF YawMatrix;
 		Matrix.IdentityF(YawMatrix);
 		Matrix.RotateYGlobalF(YawMatrix, Math::DegreesToRadians(TotalYaw), YawMatrix);
-<<<<<<< HEAD
 		GVECTORF CameraPosition = CamViewMatrix->row4;
 		Matrix.MultiplyMatrixF(*CamViewMatrix, YawMatrix, *CamViewMatrix);
 		CamViewMatrix->row4 = CameraPosition;
@@ -1039,92 +922,8 @@ public:
 		World->SetViewMatrix1(CameraView1);
 		World->SetViewMatrix2(CameraView2);
 		World->SetViewMatrix3(CameraView3);
-=======
-		GVECTORF CameraPosition = GridViewMatrix.row4;
-		Matrix.MultiplyMatrixF(GridViewMatrix, YawMatrix, GridViewMatrix);
-		GridViewMatrix.row4 = CameraPosition;
 
-		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
-		//Frustum CamF;
-		float AspectRatio = 0.0f;
-		vlk.GetAspectRatio(AspectRatio);
-#if 0 // kept for later 
-		//CamF.setCamInternals(65, AspectRatio, 1.0f, 1000.0f);
-		//Vector4D U = reinterpret_cast<Vector4D&>(GridViewMatrix.row2);
-		//Vector4D Ri = reinterpret_cast<Vector4D&>(GridViewMatrix.row1);
-		//Vector4D F = reinterpret_cast<Vector4D&>(GridViewMatrix.row3);
-		//Vector4D P = reinterpret_cast<Vector4D&>(GridViewMatrix.row4);
-		//
-		//
-		//float hh = tanf(65.0f * 0.5f) * 100.0f;
-		//float hw = hh * AspectRatio;
-		//
-		//float hhn = tanf(65.0f * 0.5f) * 10.0f;
-		//float hwn = hhn * AspectRatio;
-		//
-		//Vector3D FC = Vector3D(P.X, P.Y, P.Z) + Vector3D(F.X, F.Y, F.Z) * 100.0f;
-		//Vector3D NC = Vector3D(P.X, P.Y, P.Z) + Vector3D(F.X, F.Y, F.Z) * 100.0f;
-		//Vector3D UP = Vector3D(U.X, U.Y, U.Z);
-		//Vector3D Right = Vector3D(Ri.X, Ri.Y, Ri.Z);
-		//
-		//Vertex FTL = { {0,0}, {FC + (UP * hh * 0.5f) - (Right * hw * 0.5f)} };
-		//Vertex FTR = { {0,0}, {FC + (UP * hh * 0.5f) + (Right * hw * 0.5f)} };
-		//Vertex FBL = { {0,0}, {FC - (UP * hh * 0.5f) - (Right * hw * 0.5f)} };
-		//Vertex FBR = { {0,0}, {FC - (UP * hh * 0.5f) + (Right * hw * 0.5f)} };
-		//
-		//
-		//Vertex NTL = { {0,0}, {NC + (UP * hhn * 0.5f) - (Right * hwn * 0.5f)} };
-		//Vertex NTR = { {0,0}, {NC + (UP * hhn * 0.5f) + (Right * hwn * 0.5f)} };
-		//Vertex NBL = { {0,0}, {NC - (UP * hhn * 0.5f) - (Right * hwn * 0.5f)} };
-		//Vertex NBR = { {0,0}, {NC - (UP * hhn * 0.5f) + (Right * hwn * 0.5f)} };
-#endif
-		std::vector<Vertex>* Vertices = World->GetLevelData()->GetVertices();
-		CameraFrustum.SetFrustumInternals(AspectRatio, 65.0f, 10.0f, 100.0f);
-		CameraFrustum.CreateFrustum(GridViewMatrix, 1.0f, AspectRatio, 10.0f, 100.0f);
-
-		CameraFrustum.DebugUpdateVertices(Vertices->size() - Frustum::GetFrustumVertexCount(), Vertices);
-		World->GetLevelData()->UpdateVertexBuffer();
-
-		//uint32 RemovedGPUCalls = 0;
-		//for (uint32 i = 0; i < StaticMeshes.size() - 1; ++i)
-		//{
-		//	Vector4D Pp = StaticMeshes[i].GetTranslation();
-		//	if (!CamF.PointInFrustum(Vector3D(Pp.X, Pp.Y, Pp.Z)))
-		//	{
-		//		RemovedGPUCalls++;
-		//	}
-		//	//if (!CamFrustum.PointInFrustum(P.X, P.Y, P.Z))
-		//	//{
-		//	//	RemovedGPUCalls++;
-		//	//}
-		//}
-
-		//std::cout << "\n\n[Frustum Culling]: removed " << RemovedGPUCalls << " gpu draw calls...\n\n";
-
-		GW::MATH::GMATRIXF Mat = GW::MATH::GIdentityMatrixF;
-		Mat.row4 = GridViewMatrix.row4;
-		GW::MATH::GVECTORF Vec = {0.0, 0.0f, -250.0f,1.0f};
-		Matrix.RotateYGlobalF(Mat, Math::DegreesToRadians(90), Mat);
-		Matrix.TranslateLocalF(Mat, Vec, Mat);
-
-		//Vector4D T = reinterpret_cast<Vector4D&>(GridViewMatrix.row4);
-		//Vector4D R = reinterpret_cast<Vector4D&>(GridViewMatrix.row1);
-		//
-		//T += R * -100.0f;
-		//
-		//GW::MATH::GVECTORF Eye = reinterpret_cast<GW::MATH::GVECTORF&>(T);
-		//GW::MATH::GVECTORF Target = GridViewMatrix.row4;
-		//GW::MATH::GVECTORF Up = { 0.0f, 1.0f, 0.0f, 0.0f };
-		//Matrix.LookAtLHF(Eye, Target, Up, Mat);
-
-		Matrix.InverseF(GridViewMatrix, GridViewMatrix);
-		Matrix.InverseF(Mat, Mat);
-
-		World->SetViewMatrix1(GridViewMatrix);
-		World->SetViewMatrix2(Mat);
->>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
-
-			std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+		std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 		using ms = std::chrono::duration<float, std::milli>;
 		TimePassed = std::chrono::duration_cast<ms>(end - begin).count();
 	}
