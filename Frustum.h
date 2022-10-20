@@ -7,6 +7,7 @@ enum {
 	RIGHT, NEARP, FARP
 };
 
+<<<<<<< HEAD
 enum PlaneIntersectionResult
 {
 	Front,
@@ -14,6 +15,8 @@ enum PlaneIntersectionResult
 	Straddling
 };
 
+=======
+>>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 
 /*
 * XYZ for the normal of the plane
@@ -134,12 +137,18 @@ public:
 		NearPlaneBottomLeft = NearPlaneCenter - (cameraUp * NearPlaneHeight * 0.5f) - (cameraRight * NearPlaneWidth * 0.5f);
 		NearPlaneBottomRight = NearPlaneCenter - (cameraUp * NearPlaneHeight * 0.5f) + (cameraRight * NearPlaneWidth * 0.5f);
 
+<<<<<<< HEAD
 		MakePlaneFromThreePoints(FarPlaneTopRight, FarPlaneTopLeft, FarPlaneBottomLeft, Planes[FARP]);
 		MakePlaneFromThreePoints(NearPlaneTopRight, NearPlaneTopLeft, NearPlaneBottomLeft, Planes[NEARP]);
 		MakePlaneFromThreePoints(FarPlaneTopRight, FarPlaneTopLeft, NearPlaneTopLeft, Planes[TOP]);
 		MakePlaneFromThreePoints(FarPlaneBottomRight, FarPlaneBottomLeft, NearPlaneBottomLeft, Planes[BOTTOM]);
 		MakePlaneFromThreePoints(NearPlaneBottomLeft, FarPlaneTopLeft, FarPlaneBottomLeft, Planes[LEFT]);
 		MakePlaneFromThreePoints(NearPlaneTopRight, FarPlaneTopRight, FarPlaneBottomRight, Planes[RIGHT]);
+=======
+		Vector3D NearPlaneNormal = cameraForward;
+		Planes[NEARP] = Plane(NearPlaneNormal, -NearPlaneDistance);
+		Planes[FARP] = Plane(-NearPlaneNormal, FarPlaneDistance);
+>>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 
 	}
 
@@ -173,6 +182,7 @@ public:
 		NearPlaneBottomLeft = Vector3D(NBL.X, NBL.Y, NBL.Z);
 		NearPlaneBottomRight = Vector3D(NBR.X, NBR.Y, NBR.Z);
 
+<<<<<<< HEAD
 		MakePlaneFromThreePoints(FarPlaneTopRight, FarPlaneTopLeft, FarPlaneBottomLeft, Planes[FARP]);
 		MakePlaneFromThreePoints(NearPlaneTopRight, NearPlaneTopLeft, NearPlaneBottomLeft, Planes[NEARP]);
 		MakePlaneFromThreePoints(FarPlaneTopRight, FarPlaneTopLeft, NearPlaneTopLeft, Planes[TOP]);
@@ -181,6 +191,9 @@ public:
 		MakePlaneFromThreePoints(NearPlaneTopRight, FarPlaneTopRight, FarPlaneBottomRight, Planes[RIGHT]);
 
 		/*GW::MATH::GMATRIXF Inverse = GW::MATH::GIdentityMatrixF;
+=======
+		GW::MATH::GMATRIXF Inverse = GW::MATH::GIdentityMatrixF;
+>>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 		GW::MATH::GMatrix::InverseF(camModel, Inverse);
 		Mat = reinterpret_cast<Matrix4D&>(Inverse);
 
@@ -201,9 +214,17 @@ public:
 		Vector4D V5 = reinterpret_cast<Vector4D&>(camModel.row3);
 
 		Planes[4] = Plane(V5.X, V5.Y, V5.Z, -(D + nearPlane));
+<<<<<<< HEAD
 		Planes[5] = Plane(-V5.X, -V5.Y, -V5.Z, D + farPlane);*/
 	}
 
+=======
+		Planes[5] = Plane(-V5.X, -V5.Y, -V5.Z, D + farPlane);
+	}
+
+
+
+>>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 	/*bool SphereVisible(int32 planeCount, const Plane* planeArray,
 		const Vector3D& center, float radius)
 	{
@@ -215,6 +236,7 @@ public:
 		return (true);
 	}*/
 
+<<<<<<< HEAD
 	PlaneIntersectionResult TestAABB(const Vector3D& aabbMin, const Vector3D& aabbMax)
 	{
 		for (uint32 i = 0; i < 6; ++i)
@@ -225,6 +247,9 @@ public:
 			}
 		}
 	}
+=======
+
+>>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 
 	/*--------------------------------------------------DEBUG-------------------------------------------------------*/
 
@@ -287,6 +312,7 @@ private:
 		NearPlaneWidth = NearPlaneHeight * AspectRatio;
 	}
 
+<<<<<<< HEAD
 	inline static void MakePlaneFromThreePoints(const Vector3D& a, const Vector3D& b, const Vector3D& c, Plane& outPlane)
 	{
 		Vector3D EdgeA = b - a;
@@ -334,6 +360,8 @@ private:
 		return IntesectSphereOnPlane(SphereCenter, SphereProjectedRadius, plane);
 	}
 
+=======
+>>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 	//inline bool PointInFrustum(float x, float y, float z)
 	//{
 	//	for (uint32 i = 0; i < 6; ++i)

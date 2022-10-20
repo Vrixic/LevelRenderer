@@ -39,7 +39,11 @@ struct SpotLight
 struct SceneDataGlobal
 {
 	/* Globally shared model information */
+<<<<<<< HEAD
     float4x4 View[3];
+=======
+    float4x4 View[2];
+>>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
     float4x4 Projection;
 
 	/* Lighting Information */
@@ -74,8 +78,11 @@ cbuffer ConstantBuffer
     uint MaterialID;
     uint DiffuseTextureID;
     uint ViewMatID;
+<<<<<<< HEAD
     
     float3 Color;
+=======
+>>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 };
 
 struct PixelIn

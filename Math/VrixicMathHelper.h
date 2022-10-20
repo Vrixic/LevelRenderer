@@ -5,6 +5,10 @@
 class Vector3D;
 class Vector4D;
 class Matrix4D;
+<<<<<<< HEAD
+=======
+class Plane;
+>>>>>>> a376bcaca055c08eaa3440b4c38d28bc8fba93cc
 
 #define PI (3.1415926535897932f)
 
