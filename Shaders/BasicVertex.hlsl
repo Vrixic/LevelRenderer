@@ -74,9 +74,12 @@ cbuffer ConstantBuffer
 {
     uint MeshID;
     uint MaterialID;
+
     uint DiffuseTextureID;
+    //uint SpecularTextureID;
+
     uint ViewMatID;
-    
+
     float3 Color;
 };
 

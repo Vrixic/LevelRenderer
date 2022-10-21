@@ -92,23 +92,23 @@ public:
 			/* Debug boxes */
 			{
 				RawMeshData rawMeshData = rawMeshDatas[i];
-			
+
 				Vector3D Min = rawMeshData.BoxMin_AABB;
 				Vector3D Max = rawMeshData.BoxMax_AABB;
-			
+
 				Vector3D BoxVerts[8] =
 				{
 					Min, Vector3D(Min.X, Min.Y, Max.Z), Vector3D(Max.X, Min.Y, Max.Z), Vector3D(Max.X, Min.Y, Min.Z),
 					Vector3D(Min.X,Max.Y,Min.Z), Vector3D(Min.X,Max.Y, Max.Z), Max, Vector3D(Max.X, Max.Y, Min.Z)
 				};
-			
+
 				uint32 BoxIndices[24] =
 				{
 					0, 1, 1, 2, 2, 3, 3, 0,
 					4, 5, 5, 6, 6, 7, 7, 4,
 					0, 4, 1, 5, 2, 6, 3, 7
 				};
-			
+
 				TotalVertices += 8;
 				Vertex V = { };
 				V.Color = Vector4D(0.0f, 1.0f, 0.0f, 1.0f);
@@ -117,13 +117,29 @@ public:
 					V.Position = BoxVerts[i];
 					Vertices.push_back(V);
 				}
-			
+
 				TotalIndices += 24;
 				for (uint32 i = 0; i < 24; ++i)
 				{
 					Indices.push_back(BoxIndices[i]);
 				}
 			}
+		}
+
+		Vertex V = { };
+
+		for (uint32 i = 1; i < 13; ++i)
+		{
+			if (i != 0 && i % 2 == 0)
+			{
+				V.Color = Vector4D(1.0f, 0.0f, 0.0f, 1.0f);
+			}
+			else
+			{
+				V.Color = Vector4D(0.0f, 1.0f, 0.0f, 1.0f);
+			}
+
+			Vertices.push_back(V);
 		}
 
 		//AddRawMeshData(rawMeshDatas[rawMeshDatas.size() - 1]);
@@ -139,12 +155,12 @@ public:
 			vkDestroyBuffer(*Device, VertexBufferHandle, nullptr);
 			vkFreeMemory(*Device, VertexBufferData, nullptr);
 		}
-		
+
 		if (IndexBufferHandle)
 		{
 			vkDestroyBuffer(*Device, IndexBufferHandle, nullptr);
 			vkFreeMemory(*Device, IndexBufferData, nullptr);
-		}		
+		}
 	}
 
 public:
@@ -158,7 +174,7 @@ public:
 		VlkSurface->GetCommandBuffer(CurrentBuffer, (void**)&CommandBuffer);
 
 		VkDeviceSize Offsets[] = { 0 };
-		
+
 		/* Bind Vertex and Index Buffers */
 		vkCmdBindVertexBuffers(CommandBuffer, 0, 1, &VertexBufferHandle, Offsets);
 		vkCmdBindIndexBuffer(CommandBuffer, IndexBufferHandle, Offsets[0], VK_INDEX_TYPE_UINT32);
@@ -232,7 +248,7 @@ private:
 			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &VertexBufferHandle, &VertexBufferData);
 		GvkHelper::write_to_buffer(*Device, VertexBufferData, Vertices.data(), VerticesSizeInBytes);
 	}
-	
+
 	void LoadIndexData()
 	{
 		GW::GReturn Result;

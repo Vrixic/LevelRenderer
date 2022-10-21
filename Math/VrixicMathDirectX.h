@@ -31,8 +31,8 @@ inline void StoreVectorRegister(Vector4D* v, VectorRegister& vectorRegister)
 /* Multiplies two matrices and result is returned via Param1*/
 inline void VectorRegisterMatrixMultiply(Matrix4D* Result, const Matrix4D* M1, const Matrix4D* M2)
 {
-	DirectX::XMMATRIX xMat1 = DirectX::XMLoadFloat4x4A((const DirectX::XMFLOAT4X4A*)(M1));
-	DirectX::XMMATRIX xMat2 = DirectX::XMLoadFloat4x4A((const DirectX::XMFLOAT4X4A*)(M2));
+	DirectX::XMMATRIX xMat1 = DirectX::XMLoadFloat4x4((const DirectX::XMFLOAT4X4*)(M1));
+	DirectX::XMMATRIX xMat2 = DirectX::XMLoadFloat4x4((const DirectX::XMFLOAT4X4*)(M2));
 	DirectX::XMMATRIX xResult = DirectX::XMMatrixMultiply(xMat1, xMat2);
 	DirectX::XMStoreFloat4x4A((DirectX::XMFLOAT4X4A*)(Result), xResult);
 }

@@ -40,5 +40,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "D:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer/build/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "D:/Vrij/Education/Fullsail_Classes/Project And Portfolio 4/LevelRenderer/LevelRenderer/BUILD/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

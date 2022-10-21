@@ -15,12 +15,11 @@ struct ConstantBuffer
 {
 	uint32 MeshID;
 	uint32 MaterialID;
-
 	uint32 DiffuseTextureID;
-
 	uint32 ViewMatID;
 
 	Vector3D Color;
+	uint32 SpecularTextureID;
 };
 
 #define GREEN Vector3D(0,1,0)
@@ -46,15 +45,18 @@ class Renderer
 	//VkDeviceMemory vertexData = nullptr;
 	VkShaderModule VertexShader_Texture = nullptr;
 	VkShaderModule VertexShader_Basic = nullptr;
+	VkShaderModule VertexShader_Debug = nullptr;
 	VkShaderModule VertexShader_Material = nullptr;
 	VkShaderModule PixelShader_Texture = nullptr;
-	VkShaderModule PixelShader_Basic = nullptr;
+	VkShaderModule PixelShader_Basic = nullptr;;
+	VkShaderModule PixelShader_Debug = nullptr;;
 	VkShaderModule PixelShader_Material = nullptr;
 
 	// pipeline settings for drawing (also required)
 	VkPipeline Pipeline_Texture = nullptr;
 	VkPipeline Pipeline_Material = nullptr;
 	VkPipeline Pipeline_Debug = nullptr;
+	VkPipeline Pipeline_Debug2 = nullptr;
 	VkPipeline* CurrentPipeline = nullptr;
 	VkPipelineLayout pipelineLayout = nullptr;
 
@@ -183,6 +185,28 @@ public:
 			std::cout << "Pixel Shader Errors: " << shaderc_result_get_error_message(result) << std::endl;
 		GvkHelper::create_shader_module(device, shaderc_result_get_length(result), // load into Vulkan
 			(char*)shaderc_result_get_bytes(result), &PixelShader_Basic);
+		shaderc_result_release(result); // done
+
+		std::string VertexShaderDebugSource = FileHelper::LoadShaderFileIntoString("../Shaders/DebugVertex.hlsl");
+		std::string PixelShaderDebugSource = FileHelper::LoadShaderFileIntoString("../Shaders/DebugPixel.hlsl");
+
+		// Create Vertex Shader
+		result = shaderc_compile_into_spv( // compile
+			compiler, VertexShaderDebugSource.c_str(), VertexShaderDebugSource.length(),
+			shaderc_vertex_shader, "main.vert", "main", options);
+		if (shaderc_result_get_compilation_status(result) != shaderc_compilation_status_success) // errors?
+			std::cout << "Vertex Shader Errors: " << shaderc_result_get_error_message(result) << std::endl;
+		GvkHelper::create_shader_module(device, shaderc_result_get_length(result), // load into Vulkan
+			(char*)shaderc_result_get_bytes(result), &VertexShader_Debug);
+		shaderc_result_release(result); // done
+		// Create Pixel Shader
+		result = shaderc_compile_into_spv( // compile
+			compiler, PixelShaderDebugSource.c_str(), PixelShaderDebugSource.length(),
+			shaderc_fragment_shader, "main.frag", "main", options);
+		if (shaderc_result_get_compilation_status(result) != shaderc_compilation_status_success) // errors?
+			std::cout << "Pixel Shader Errors: " << shaderc_result_get_error_message(result) << std::endl;
+		GvkHelper::create_shader_module(device, shaderc_result_get_length(result), // load into Vulkan
+			(char*)shaderc_result_get_bytes(result), &PixelShader_Debug);
 		shaderc_result_release(result); // done
 
 		// Free runtime shader compiler resources
@@ -333,6 +357,12 @@ public:
 		PipelineCreator.AddNewStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, &PixelShader_Basic);
 		PipelineCreator.CreateGraphicsPipelines(&device, Pipeline_Debug);
 
+		PipelineCreator.SetInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
+		PipelineCreator.ClearStageCreateInfos();
+		PipelineCreator.AddNewStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, &VertexShader_Debug);
+		PipelineCreator.AddNewStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, &PixelShader_Debug);
+		PipelineCreator.CreateGraphicsPipelines(&device, Pipeline_Debug2);
+
 
 		/* check is textures are supported if not */
 		for (uint32 i = 0; i < StaticMeshes.size(); ++i)
@@ -385,24 +415,12 @@ public:
 		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-		// TODO: Part 3a -> Projection matrix
-		GW::MATH::GMATRIXF ProjectionMatrix;
-		GW::MATH::GMatrix::IdentityF(ProjectionMatrix);
-		float FOV = Math::DegreesToRadians(65);
-		float NearPlane = 0.1f;
-		float FarPlane = 1000.0f;
-		float AspectRatio = 0.0f;
-		vlk.GetAspectRatio(AspectRatio);
-		GW::MATH::GMatrix::ProjectionDirectXLHF(FOV, AspectRatio, NearPlane, FarPlane, ProjectionMatrix);
-		World->SetProjectionMatrix(ProjectionMatrix);
 
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *CurrentPipeline);
 		World->Bind();
 
 		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
 		ConstantBuffer Buffer;
-		uint32 VertexCount = 0;
-		uint32 IndexCount = 0;
 
 		for (uint32 i = 0; i < RenderMeshes.size(); ++i)
 		{
@@ -411,7 +429,8 @@ public:
 			for (uint32 j = 0; j < RenderMeshes[i].GetMeshCount(); ++j)
 			{
 				Buffer.MaterialID = RenderMeshes[i].GetMaterialIndex() + RenderMeshes[i].GetSubMeshMaterialIndex(j);
-				Buffer.DiffuseTextureID = RenderMeshes[i].GetSubMeshTextureIndex(j);
+				Buffer.DiffuseTextureID = RenderMeshes[i].GetSubMeshDiffuseTextureIndex(j);
+				Buffer.SpecularTextureID = RenderMeshes[i].GetSubMeshSpecularTextureIndex(j);
 				Buffer.ViewMatID = 0;
 
 				vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
@@ -419,61 +438,53 @@ public:
 				vkCmdDrawIndexed(commandBuffer,
 					RenderMeshes[i].GetSubMeshIndexCount(j),
 					RenderMeshes[i].GetInstanceCount(),
-					IndexCount + RenderMeshes[i].GetSubMeshIndexOffset(j),
-					VertexCount, 0);
+					RenderMeshes[i].GetIndexOffset() + RenderMeshes[i].GetSubMeshIndexOffset(j),
+					RenderMeshes[i].GetVertexOffset(), 0);
 			}
-
-			VertexCount += RenderMeshes[i].GetVertexCount();
-			IndexCount += RenderMeshes[i].GetIndexCount();
 		}
 
 		viewport.x = 50;
 		viewport.y = 50;
-		viewport.width = 150;
-		viewport.height = 150;
+		viewport.width = 200;
+		viewport.height = 200;
 		scissor.offset.x = 50;
 		scissor.offset.y = 50;
-		scissor.extent.width = 150;
-		scissor.extent.height = 150;
-
+		scissor.extent.width = 200;
+		scissor.extent.height = 200;
+		
 		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-		VertexCount = 0;
-		IndexCount = 0;
 		
 		for (uint32 i = 0; i < RenderMeshes.size(); ++i)
 		{
 			Buffer.MeshID = RenderMeshes[i].GetWorldMatrixIndex();
-
+		
 			for (uint32 j = 0; j < RenderMeshes[i].GetMeshCount(); ++j)
 			{
 				Buffer.MaterialID = RenderMeshes[i].GetMaterialIndex() + RenderMeshes[i].GetSubMeshMaterialIndex(j);
-				Buffer.DiffuseTextureID = RenderMeshes[i].GetSubMeshTextureIndex(j);
+				Buffer.DiffuseTextureID = RenderMeshes[i].GetSubMeshDiffuseTextureIndex(j);
+				Buffer.SpecularTextureID = RenderMeshes[i].GetSubMeshSpecularTextureIndex(j);
 				Buffer.ViewMatID = 1;
-
+		
 				vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
 					VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ConstantBuffer), &Buffer);
 				vkCmdDrawIndexed(commandBuffer,
 					RenderMeshes[i].GetSubMeshIndexCount(j),
 					RenderMeshes[i].GetInstanceCount(),
-					IndexCount + RenderMeshes[i].GetSubMeshIndexOffset(j),
-					VertexCount, 0);
+					RenderMeshes[i].GetIndexOffset() + RenderMeshes[i].GetSubMeshIndexOffset(j),
+					RenderMeshes[i].GetVertexOffset(), 0);
 			}
-
-			VertexCount += RenderMeshes[i].GetVertexCount();
-			IndexCount += RenderMeshes[i].GetIndexCount();
 		}
-
+		
 		/* Draw AABBS */
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Pipeline_Debug);
-
+		
 		for (uint32 i = 0; i < StaticMeshes.size(); ++i)
 		{
 			Buffer.MeshID = StaticMeshes[i].GetWorldMatrixIndex();
 			Buffer.ViewMatID = 1;
 			Buffer.Color = StaticMeshes[i].Color_AABB;
-
+		
 			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
 				VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ConstantBuffer), &Buffer);
 			vkCmdDrawIndexed(commandBuffer,
@@ -482,11 +493,11 @@ public:
 				World->GetLevelData()->DebugBoxIndexStart,
 				World->GetLevelData()->DebugBoxVertexStart + (i * 8), 0);
 		}
-
+		
 		Buffer.MeshID = DebugMeshes[0].GetWorldMatrixIndex();
 		Buffer.ViewMatID = 1;
 		Buffer.Color = Vector3D::ZeroVector();
-
+		
 		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
 			VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ConstantBuffer), &Buffer);
 		vkCmdDrawIndexed(commandBuffer,
@@ -494,28 +505,28 @@ public:
 			1,
 			World->GetLevelData()->DebugBoxIndexStart - 24,
 			World->GetLevelData()->DebugBoxVertexStart - 8, 0);
-
-		viewport.x = width - 160;// 640;
+		
+		viewport.x = width - 210;// 640;
 		viewport.y = 50;
-		viewport.width = 150;
-		viewport.height = 150;
-		scissor.offset.x = width - 160;// 640;
+		viewport.width = 200;
+		viewport.height = 200;
+		scissor.offset.x = width - 210;// 640;
 		scissor.offset.y = 50;
-		scissor.extent.width = 150;
-		scissor.extent.height = 150;
-
+		scissor.extent.width = 200;
+		scissor.extent.height = 200;
+		
 		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
+		
 		/* Draw AABBS */
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Pipeline_Debug);
-
+		
 		for (uint32 i = 0; i < StaticMeshes.size(); ++i)
 		{
 			Buffer.MeshID = StaticMeshes[i].GetWorldMatrixIndex();
 			Buffer.ViewMatID = 2;
 			Buffer.Color = StaticMeshes[i].Color_AABB;
-
+		
 			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
 				VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ConstantBuffer), &Buffer);
 			vkCmdDrawIndexed(commandBuffer,
@@ -524,11 +535,11 @@ public:
 				World->GetLevelData()->DebugBoxIndexStart + 24,
 				World->GetLevelData()->DebugBoxVertexStart + (i * 8), 0);
 		}
-
+		
 		Buffer.MeshID = DebugMeshes[0].GetWorldMatrixIndex();
 		Buffer.ViewMatID = 2;
 		Buffer.Color = Vector3D::ZeroVector();
-
+		
 		vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
 			VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ConstantBuffer), &Buffer);
 		vkCmdDrawIndexed(commandBuffer,
@@ -536,6 +547,17 @@ public:
 			1,
 			World->GetLevelData()->DebugBoxIndexStart - 24,
 			World->GetLevelData()->DebugBoxVertexStart - 8, 0);
+
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, Pipeline_Debug2);
+
+		std::vector<Vertex>* Vertices = World->GetLevelData()->GetVertices();
+		for (uint32 i = Vertices->size() - 12; i < Vertices->size(); i+=2)
+		{
+			Buffer.Color = Vector3D((*Vertices)[i].Color.X, (*Vertices)[i].Color.Y, (*Vertices)[i].Color.Z);
+			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT |
+				VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ConstantBuffer), &Buffer);
+			vkCmdDraw(commandBuffer, 2, 1, i, 0);
+		}
 
 		/*--------------------------------------------------DEBUG-------------------------------------------------------*/
 	}
@@ -876,35 +898,19 @@ public:
 		//CameraFrustum.CreateFrustum(CameraView1, 1.0f, AspectRatio, 0.1f, 100.0f);
 
 		CameraFrustum.CreateFrustum(Pos, Right, UP, Forw);
+		CameraFrustum.DebugUpdateNormalVerts(World->GetLevelData()->GetVertices()->size() - 12, World->GetLevelData()->GetVertices());
 		CameraFrustum.DebugUpdateVertices(World->GetLevelData()->DebugBoxVertexStart - Frustum::GetFrustumVertexCount(), Vertices);
 		World->GetLevelData()->UpdateVertexBuffer();
 
-		uint32 RemovedGPUCalls = 0;
-		RenderMeshes.clear();
-		for (uint32 i = 0; i < StaticMeshes.size(); ++i)
-		{
-			/* --> Make the box in world space */
-			Vector4D MinBox4D = World->ShaderSceneData->WorldMatrices[StaticMeshes[i].GetWorldMatrixIndex()] * Vector4D(StaticMeshes[i].MinBox_AABB, 1.0f);
-			Vector4D MaxBox4D = World->ShaderSceneData->WorldMatrices[StaticMeshes[i].GetWorldMatrixIndex()] * Vector4D(StaticMeshes[i].MaxBox_AABB, 1.0f);
-			
-			Vector3D MinBox = Vector3D(MinBox4D.X, MinBox4D.Y, MinBox4D.Z);
-			Vector3D MaxBox = Vector3D(MinBox4D.X, MinBox4D.Y, MinBox4D.Z);
-			if (CameraFrustum.TestAABB(MinBox, MaxBox) == PlaneIntersectionResult::Back)
-			{
-				StaticMeshes[i].Color_AABB = RED;
-				RemovedGPUCalls++;
-			}
-			else
-			{
-				StaticMeshes[i].Color_AABB = GREEN;
-				RenderMeshes.push_back(StaticMeshes[i]);
-			}
-		}
-
-		if (RemovedGPUCalls > 0)
-		{
-			std::cout << "\n\n[Frustum Culling]: removed " << RemovedGPUCalls << " gpu draw calls...\n\n";
-		}		
+		GW::MATH::GMATRIXF ProjectionMatrix;
+		GW::MATH::GMatrix::IdentityF(ProjectionMatrix);
+		float FOV = Math::DegreesToRadians(65);
+		float NearPlane = 0.1f;
+		float FarPlane = 1000.0f;
+		//float AspectRatio = 0.0f;
+		vlk.GetAspectRatio(AspectRatio);
+		GW::MATH::GMatrix::ProjectionDirectXLHF(FOV, AspectRatio, NearPlane, FarPlane, ProjectionMatrix);
+		World->SetProjectionMatrix(ProjectionMatrix);
 
 		if (isCamView1MainCamera)
 		{
@@ -923,6 +929,50 @@ public:
 		World->SetViewMatrix2(CameraView2);
 		World->SetViewMatrix3(CameraView3);
 
+		//GW::MATH::GMatrix::ProjectionVulkanLHF(FOV, AspectRatio, NearPlane, FarPlane, ProjectionMatrix);
+
+		uint32 RemovedGPUCalls = 0;
+		RenderMeshes.clear();
+		for (uint32 i = 0; i < StaticMeshes.size(); ++i)
+		{
+			/* --> Make the box in ndc space */
+			Vector4D MinBox4D = World->ShaderSceneData->WorldMatrices[StaticMeshes[i].GetWorldMatrixIndex()] * Vector4D(StaticMeshes[i].MinBox_AABB, 1.0f);	 //reinterpret_cast<Matrix4D&>(CameraView1) * reinterpret_cast<Matrix4D&>(ProjectionMatrix) * 
+			Vector4D MaxBox4D = World->ShaderSceneData->WorldMatrices[StaticMeshes[i].GetWorldMatrixIndex()] * Vector4D(StaticMeshes[i].MaxBox_AABB, 1.0f);	 //reinterpret_cast<Matrix4D&>(CameraView1) * reinterpret_cast<Matrix4D&>(ProjectionMatrix) * 
+			
+			Vector3D MinBox = Vector3D(MinBox4D.X, MinBox4D.Y, MinBox4D.Z);
+			//MinBox /= MinBox4D.W;
+			Vector3D MaxBox = Vector3D(MaxBox4D.X, MaxBox4D.Y, MaxBox4D.Z);
+			//MaxBox /= MaxBox4D.W;
+
+			/* NDC space check */
+			//if ((MinBox.X > 1 && MaxBox.X > 1) || (MinBox.X < -1 && MaxBox.X < -1) || (MinBox.Y > 1 && MaxBox.Y > 1) || (MinBox.Z < -1 && MaxBox.Z < -1))
+			//{
+			//	StaticMeshes[i].Color_AABB = RED;
+			//	RemovedGPUCalls++;
+			//}
+			//else
+			//{
+			//	StaticMeshes[i].Color_AABB = GREEN;
+			//	RenderMeshes.push_back(StaticMeshes[i]);
+			//}
+
+			if (CameraFrustum.TestAABB(MinBox, MaxBox) == PlaneIntersectionResult::Back)
+			{
+				StaticMeshes[i].Color_AABB = RED;
+				RemovedGPUCalls++;
+			}
+			else
+			{
+				StaticMeshes[i].Color_AABB = GREEN;
+				RenderMeshes.push_back(StaticMeshes[i]);
+			}
+		}
+
+		if (RemovedGPUCalls > 0)
+		{
+			//std::cout << "\n[Frustum Culling]: removed " << RemovedGPUCalls << " gpu draw calls...\n";
+		}
+
 		std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 		using ms = std::chrono::duration<float, std::milli>;
 		TimePassed = std::chrono::duration_cast<ms>(end - begin).count();
@@ -936,13 +986,16 @@ private:
 		// Release allocated buffers, shaders & pipeline
 		vkDestroyShaderModule(device, VertexShader_Texture, nullptr);
 		vkDestroyShaderModule(device, VertexShader_Basic, nullptr);
+		vkDestroyShaderModule(device, VertexShader_Debug, nullptr);
 		vkDestroyShaderModule(device, VertexShader_Material, nullptr);
 		vkDestroyShaderModule(device, PixelShader_Basic, nullptr);
+		vkDestroyShaderModule(device, PixelShader_Debug, nullptr);
 		vkDestroyShaderModule(device, PixelShader_Texture, nullptr);
 		vkDestroyShaderModule(device, PixelShader_Material, nullptr);
 		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 		vkDestroyPipeline(device, Pipeline_Texture, nullptr);
 		vkDestroyPipeline(device, Pipeline_Debug, nullptr);
+		vkDestroyPipeline(device, Pipeline_Debug2, nullptr);
 		vkDestroyPipeline(device, Pipeline_Material, nullptr);
 
 		if (World)

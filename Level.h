@@ -161,7 +161,7 @@ public:
 			GvkHelper::write_to_buffer(*Device, ShaderStorageDatas[CurrentBuffer], ShaderSceneData, SceneDataSizeInBytes);
 			vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *PipelineLayout, 0, 1, &ShaderStorageDescSets[CurrentBuffer], 0, nullptr);
 
-			if (Textures.size() > 1)
+			if (Textures.size() > 2)
 			{
 				vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *PipelineLayout, 1, 1, &ShaderTextureDescSets[CurrentBuffer], 0, nullptr);
 			}
@@ -702,6 +702,8 @@ private:
 
 		Mesh TempMesh;
 		uint32 MaterialOffset = 0;
+		uint32 VertexOffset = 0;
+		uint32 IndexOffset = 0;
 		uint32 WorldMatricesOffset = 0;
 		uint32 StaticMeshIndex = 0;
 		uint32 TextureOffset = 0;
@@ -713,6 +715,8 @@ private:
 		/* store the texture paths so we can load them in later */
 		std::vector<std::string> TexturePaths;
 		TexturePaths.push_back("../Assets/Textures/DefaultDiffuseMap.ktx");
+		TexturePaths.push_back("../Assets/Textures/DefaultSpecularMap.ktx");
+		TexturePaths.push_back("../Assets/Textures/DefaultNormalMap.ktx");
 
 		srand(time(NULL));
 
@@ -796,13 +800,13 @@ private:
 			}
 
 			outStaticMeshes.push_back(StaticMesh(rawData[i].MaterialCount > 0, HasTextures,
-				rawData[i].VertexCount, rawData[i].IndexCount, rawData[i].MaterialCount, MaterialOffset,
+				rawData[i].VertexCount, VertexOffset, rawData[i].IndexCount, IndexOffset, rawData[i].MaterialCount, MaterialOffset,
 				rawData[i].MeshCount, rawData[i].InstanceCount, WorldMatricesOffset,
 				&ShaderSceneData->WorldMatrices[WorldMatricesOffset]));
 
 			/* Make the debug box for the mesh */
-			//outStaticMeshes[StaticMeshIndex].DebugVertexStart = WorldData->DebugBoxVertexStart + (StaticMeshIndex * 8);
-			//outStaticMeshes[StaticMeshIndex].DebugVertexStart = WorldData->DebugBoxIndexStart + (StaticMeshIndex * 24);
+			outStaticMeshes[StaticMeshIndex].MinBox_AABB = rawData[i].BoxMin_AABB;
+			outStaticMeshes[StaticMeshIndex].MaxBox_AABB = rawData[i].BoxMax_AABB;
 
 			uint32 TexOffsetPerMesh = 0; // This offset keeps in track of how many meshes actually had a texture
 			for (uint32 j = 0; j < rawData[i].MeshCount; ++j)
@@ -817,7 +821,7 @@ private:
 				/* Diffuse TextureID */
 				if (rawData[i].Materials[rawData[i].Meshes[j].materialIndex].DiffuseMap.size() > 0)
 				{
-					TempMesh.DiffuseTextureIndex = (j + TextureOffset) + 1; // account for default diffuse texture
+					TempMesh.DiffuseTextureIndex = (j + TextureOffset) + 3; // account for default diffuse texture
 					TexturePaths.push_back(rawData[i].Materials[rawData[i].Meshes[j].materialIndex].DiffuseMap);
 					TexOffsetPerMesh++;
 					TexMapOffset++;
@@ -830,19 +834,34 @@ private:
 				}
 
 				/* Specular TextureID */
-				//if (rawData[i].Materials[rawData[i].Meshes[j].materialIndex].SpecularMap.size() > 0)
-				//{
-				//	TempMesh.SpecularTextureIndex = (j + TextureOffset + TexMapOffset) + 1; // account for default diffuse texture
-				//	TexturePaths.push_back(rawData[i].Materials[rawData[i].Meshes[j].materialIndex].SpecularMap);
-				//	TexOffsetPerMesh++;
-				//	TexMapOffset++;
-				//
-				//	HasTextures = true;
-				//}
-				//else
-				//{
-				//	TempMesh.SpecularTextureIndex = -1;
-				//}
+				if (rawData[i].Materials[rawData[i].Meshes[j].materialIndex].SpecularMap.size() > 0)
+				{
+					TempMesh.SpecularTextureIndex = (j + TextureOffset + TexMapOffset) + 3;
+					TexturePaths.push_back(rawData[i].Materials[rawData[i].Meshes[j].materialIndex].SpecularMap);
+					TexOffsetPerMesh++;
+					TexMapOffset++;
+
+					HasTextures = true;
+				}
+				else
+				{
+					TempMesh.SpecularTextureIndex = -2;
+				}
+				
+				/* Normal Textures */
+				if (rawData[i].Materials[rawData[i].Meshes[j].materialIndex].NormalMap.size() > 0)
+				{
+					TempMesh.NormalTextureIndex = (j + TextureOffset + TexMapOffset) + 3;
+					TexturePaths.push_back(rawData[i].Materials[rawData[i].Meshes[j].materialIndex].NormalMap);
+					TexOffsetPerMesh++;
+					TexMapOffset++;
+				
+					HasTextures = true;
+				}
+				else
+				{
+					TempMesh.NormalTextureIndex = -3;
+				}
 
 				//outStaticMeshes[StaticMeshIndex].Meshes.push_back(TempMesh);
 				outStaticMeshes[StaticMeshIndex].AddSubMesh(TempMesh);
@@ -875,6 +894,8 @@ private:
 			MaterialOffset += rawData[i].MaterialCount;
 			TextureOffset += TexOffsetPerMesh;
 			WorldMatricesOffset += rawData[i].WorldMatrices.size();
+			VertexOffset += rawData[i].VertexCount;
+			IndexOffset += rawData[i].IndexCount;
 
 			StaticMeshIndex++;
 		}

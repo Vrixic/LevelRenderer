@@ -20,6 +20,9 @@ private:
 	uint32 MeshCount;
 	uint32 InstanceCount;
 
+	uint32 VertexOffset;
+	uint32 IndexOffset;
+
 	uint32 MaterialIndex;
 	uint32 WorldMatrixIndex;
 
@@ -48,11 +51,12 @@ public:
 	Vector3D Color_AABB;
 
 public:
-	StaticMesh(bool hasMaterials, bool hasTextures, uint32 vertexCount, uint32 indexCount, uint32 materialCount,
+	StaticMesh(bool hasMaterials, bool hasTextures, uint32 vertexCount, uint32 vertexOffset, uint32 indexCount, uint32 indexOffset, uint32 materialCount,
 		uint32 materialIndex, uint32 meshCount, uint32 instanceCount, uint32 worldMatrixIndex, Matrix4D* transformMatrix)
-		: HasMaterials(hasMaterials), HasTextures(hasTextures), VertexCount(vertexCount), IndexCount(indexCount),	MaterialCount(materialCount), 
+		: HasMaterials(hasMaterials), HasTextures(hasTextures), VertexCount(vertexCount), VertexOffset(vertexOffset), IndexOffset(indexOffset),
+		IndexCount(indexCount),	MaterialCount(materialCount), 
 		MaterialIndex(materialIndex), MeshCount(meshCount), InstanceCount(instanceCount), 
-		WorldMatrixIndex(worldMatrixIndex) 
+		WorldMatrixIndex(worldMatrixIndex)
 	{
 		Transformation = transformMatrix;
 
@@ -152,9 +156,14 @@ public:
 		return SubMeshes[meshIndex].MaterialIndex;
 	}
 
-	uint32 GetSubMeshTextureIndex(uint32 meshIndex) const
+	uint32 GetSubMeshDiffuseTextureIndex(uint32 meshIndex) const
 	{
 		return SubMeshes[meshIndex].DiffuseTextureIndex == -1 ? 0 : SubMeshes[meshIndex].DiffuseTextureIndex;
+	}
+
+	uint32 GetSubMeshSpecularTextureIndex(uint32 meshIndex) const
+	{
+		return SubMeshes[meshIndex].SpecularTextureIndex == -2 ? 1 : SubMeshes[meshIndex].SpecularTextureIndex;
 	}
 
 	uint32 GetSubMeshIndexCount(uint32 meshIndex) const
@@ -169,9 +178,19 @@ public:
 		return VertexCount;
 	}
 
+	uint32 GetVertexOffset() const
+	{
+		return VertexOffset;
+	}
+
 	uint32 GetIndexCount() const
 	{
 		return IndexCount;
+	}
+
+	uint32 GetIndexOffset() const
+	{
+		return IndexOffset;
 	}
 
 	uint32 GetMaterialCount() const

@@ -6,23 +6,51 @@ project(LevelRenderer)
 ADD_DEFINITIONS(-DUNICODE)
 ADD_DEFINITIONS(-D_UNICODE)
 
+set(SHADERS
+	Shaders/TextureVertex.hlsl
+	Shaders/TexturePixel.hlsl
+	Shaders/BasicVertex.hlsl
+	Shaders/BasicPixel.hlsl
+	Shaders/DebugVertex.hlsl
+	Shaders/DebugPixel.hlsl
+	Shaders/MaterialVertex.hlsl
+	Shaders/MaterialPixel.hlsl
+)
+
+set(SOURCE
+	main.cpp
+	renderer.h
+	FileHelper.h
+	FileHelper.cpp
+	Gateware.h
+	GatewareDefine.h 
+	GenericDefines.h 
+	h2bParser.h 
+	Level.h 
+	LevelData.h 
+	RawMeshData.h 
+	VulkanStorageBuffer.h 
+	FileHelper.cpp 
+	StaticMesh.h
+	VulkanPipeline.h
+	Frustum.h
+	
+	Math/Matrix4D.h
+	Math/Vector2D.h
+	Math/Vector3D.h
+	Math/Vector4D.h
+	Math/VrixicMath.h
+	Math/VrixicMath.cpp
+	Math/VrixicMathDirectX.h
+	Math/VrixicMathHelper.h
+)
+
 if (WIN32)
 	# shaderc_combined.lib in Vulkan requires this for debug & release (runtime shader compiling)
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MD")
 	add_executable (LevelRenderer 
-		main.cpp
-		renderer.h
-		FileHelper.h
-		Gateware.h
-		GatewareDefine.h 
-		GenericDefines.h 
-		h2bParser.h 
-		Level.h 
-		LevelData.h 
-		RawMeshData.h 
-		VulkanStorageBuffer.h 
-		FileHelper.cpp 
-		Shaders/TexturePixel.hlsl
+		${SOURCE}
+		${SHADERS}
 	)
 	target_include_directories(LevelRenderer PUBLIC $ENV{VULKAN_SDK}/Include/)
 	target_link_directories(LevelRenderer PUBLIC $ENV{VULKAN_SDK}/Lib/)

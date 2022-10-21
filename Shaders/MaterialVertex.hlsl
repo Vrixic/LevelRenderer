@@ -74,10 +74,13 @@ cbuffer ConstantBuffer
 {
     uint MeshID;
     uint MaterialID;
+
     uint DiffuseTextureID;
+
     uint ViewMatID;
-    
+
     float3 Color;
+    uint SpecularTextureID;
 };
 
 struct VertexIn

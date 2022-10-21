@@ -74,11 +74,11 @@ cbuffer ConstantBuffer
     uint MaterialID;
 
     uint DiffuseTextureID;
-    //uint SpecularTextureID;
 
     uint ViewMatID;
 
     float3 Color;
+    uint SpecularTextureID;
 };
 
 struct PixelIn
@@ -95,5 +95,5 @@ struct PixelIn
 float4 main(PixelIn input) : SV_TARGET
 {
     //return SceneData[0].Materials[MaterialID];
-    return float4(Color, 1);
+    return input.Color;
 }

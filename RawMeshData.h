@@ -91,6 +91,7 @@ struct Mesh
 
 	int32 DiffuseTextureIndex;
 	int32 SpecularTextureIndex;
+	int32 NormalTextureIndex;
 
 	Mesh()
 	{

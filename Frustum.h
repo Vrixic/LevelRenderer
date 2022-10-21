@@ -58,6 +58,11 @@ struct Plane
 		return Vector3D(X, Y, Z);
 	}
 
+	inline Vector3D AbsNormal()
+	{
+		return Vector3D(std::abs(X), std::abs(Y), std::abs(Z));
+	}
+
 	/*
 	* The dot product between a point and a plane is equal to the signed
 	*	perpendicular distance between them
@@ -98,6 +103,7 @@ struct Frustum
 	Vector3D FarPlaneTopLeft, FarPlaneTopRight, FarPlaneBottomLeft, FarPlaneBottomRight;
 	Vector3D NearPlaneTopLeft, NearPlaneTopRight, NearPlaneBottomLeft, NearPlaneBottomRight;
 
+	Vector3D PlaneCenters[6];
 public:
 	Frustum() { }
 
@@ -134,12 +140,25 @@ public:
 		NearPlaneBottomLeft = NearPlaneCenter - (cameraUp * NearPlaneHeight * 0.5f) - (cameraRight * NearPlaneWidth * 0.5f);
 		NearPlaneBottomRight = NearPlaneCenter - (cameraUp * NearPlaneHeight * 0.5f) + (cameraRight * NearPlaneWidth * 0.5f);
 
-		MakePlaneFromThreePoints(FarPlaneTopRight, FarPlaneTopLeft, FarPlaneBottomLeft, Planes[FARP]);
+
+		MakePlaneFromThreePoints(FarPlaneBottomLeft, FarPlaneTopLeft, FarPlaneTopRight, Planes[FARP]);
+		PlaneCenters[FARP] = (FarPlaneBottomLeft + FarPlaneTopLeft + FarPlaneTopRight + FarPlaneBottomRight) / 4;
+
 		MakePlaneFromThreePoints(NearPlaneTopRight, NearPlaneTopLeft, NearPlaneBottomLeft, Planes[NEARP]);
+		PlaneCenters[NEARP] = (NearPlaneBottomLeft + NearPlaneTopLeft + NearPlaneTopRight + NearPlaneBottomRight) / 4;
+
 		MakePlaneFromThreePoints(FarPlaneTopRight, FarPlaneTopLeft, NearPlaneTopLeft, Planes[TOP]);
-		MakePlaneFromThreePoints(FarPlaneBottomRight, FarPlaneBottomLeft, NearPlaneBottomLeft, Planes[BOTTOM]);
+		PlaneCenters[TOP] = (NearPlaneTopLeft + FarPlaneTopLeft + FarPlaneTopRight + NearPlaneTopRight) / 4;
+
+		MakePlaneFromThreePoints(NearPlaneBottomLeft, FarPlaneBottomLeft, FarPlaneBottomRight, Planes[BOTTOM]);
+		PlaneCenters[BOTTOM] = (NearPlaneBottomLeft + FarPlaneBottomLeft + FarPlaneBottomRight + NearPlaneBottomRight) / 4;
+
 		MakePlaneFromThreePoints(NearPlaneBottomLeft, FarPlaneTopLeft, FarPlaneBottomLeft, Planes[LEFT]);
-		MakePlaneFromThreePoints(NearPlaneTopRight, FarPlaneTopRight, FarPlaneBottomRight, Planes[RIGHT]);
+		PlaneCenters[LEFT] = (NearPlaneBottomLeft + NearPlaneTopLeft+ FarPlaneTopLeft+ FarPlaneBottomLeft) / 4;
+
+		MakePlaneFromThreePoints(FarPlaneBottomRight, FarPlaneTopRight, NearPlaneTopRight, Planes[RIGHT]);
+		PlaneCenters[RIGHT] = (NearPlaneBottomRight + NearPlaneTopRight + FarPlaneTopRight + FarPlaneBottomRight) / 4;
+
 
 	}
 
@@ -217,13 +236,16 @@ public:
 
 	PlaneIntersectionResult TestAABB(const Vector3D& aabbMin, const Vector3D& aabbMax)
 	{
+		PlaneIntersectionResult Result;
 		for (uint32 i = 0; i < 6; ++i)
 		{
-			if (IntersectAABBOnPlane(aabbMin, aabbMax, Planes[0]) == PlaneIntersectionResult::Back)
+			if (IntersectAABBOnPlane(aabbMin, aabbMax, Planes[i]) == PlaneIntersectionResult::Back)
 			{
 				return PlaneIntersectionResult::Back;
 			}
 		}
+
+		return PlaneIntersectionResult::Front;
 	}
 
 	/*--------------------------------------------------DEBUG-------------------------------------------------------*/
@@ -249,6 +271,26 @@ public:
 		(*vertices)[startVertex + 5] = FTR;
 		(*vertices)[startVertex + 6] = FBL;
 		(*vertices)[startVertex + 7] = FBR;
+	}
+
+	void DebugUpdateNormalVerts(uint32 startVertex, std::vector<Vertex>* vertices)
+	{
+		Vector3D Normal = Vector3D::ZeroVector();
+		Vector3D StartPos = Vector3D::ZeroVector();
+		Vector3D EndPos = Vector3D::ZeroVector();
+
+		uint32 Vert = 0;
+		for (uint32 i = 0; i < 6; ++i)
+		{
+			Normal = Planes[i].GetNormal();
+			StartPos = PlaneCenters[i];
+			EndPos = StartPos + (Normal * 5.0f);
+
+			(*vertices)[startVertex + Vert++].Position = StartPos;
+			(*vertices)[startVertex + Vert++].Position = EndPos;
+		}
+
+		
 	}
 
 	static uint32 GetFrustumIndexCount()
@@ -307,29 +349,26 @@ private:
 		float SphereSignedDistance = SphereCenterOffset - plane.Distance;
 
 		//std::cout << SphereSignedDistance << " ";
-		if (SphereSignedDistance < 0)
+		if (SphereSignedDistance < -radius)
 		{
 			return PlaneIntersectionResult::Back;
 		}
-		else if (SphereSignedDistance > 0)
+		else if (SphereSignedDistance > radius)
 		{
 			return PlaneIntersectionResult::Front;
 		}
-		else
-		{
-			return PlaneIntersectionResult::Straddling;
-		}
+
+		return PlaneIntersectionResult::Straddling;
 	}
 
-	inline static PlaneIntersectionResult IntersectAABBOnPlane(const Vector3D& aabbMin, const Vector3D& aabbMax, const Plane& plane)
+	inline static PlaneIntersectionResult IntersectAABBOnPlane(const Vector3D& aabbMin, const Vector3D& aabbMax, Plane& plane)
 	{
 		Vector3D SphereCenter = (aabbMin + aabbMax) * 0.5f;
 		Vector3D BoxExtents = aabbMax - SphereCenter;
-		BoxExtents.X = std::abs(BoxExtents.X);
-		BoxExtents.Y = std::abs(BoxExtents.Y);
-		BoxExtents.Z = std::abs(BoxExtents.Z);
 
-		float SphereProjectedRadius = Plane::Dot(plane, BoxExtents);
+		//plane.AbsNormal();
+
+		float SphereProjectedRadius = Vector3D::DotProduct(plane.AbsNormal(), BoxExtents);
 
 		return IntesectSphereOnPlane(SphereCenter, SphereProjectedRadius, plane);
 	}
