@@ -12,7 +12,8 @@ struct Material
     float3 Ambient;
     float Sharpness;
     float3 TransmissionFilter;
-    float OpticalDensity;
+    uint TextureFlags;
+    //float OpticalDensity;
     float3 Emissive;
     uint IlluminationModel;
 };
@@ -79,6 +80,7 @@ cbuffer ConstantBuffer
 
     float3 Color;
     uint SpecularTextureID;
+    uint NormalTextureID;
 };
 
 struct VertexIn
@@ -87,8 +89,6 @@ struct VertexIn
     [[vk::location(1)]] float3 Position : POSITION;
     [[vk::location(2)]] float3 Normal : NORMAL0;
     [[vk::location(3)]] float4 Color : COLOR0;
-    
-    [[vk::location(4)]] uint InstanceID : SV_INSTANCEID;
 };
 
 struct VertexOut
@@ -100,19 +100,19 @@ struct VertexOut
     float2 UV : TEXCOORD0;
 };
 
-VertexOut main(VertexIn inputVertex)
+VertexOut main(VertexIn inputVertex, uint InstanceID : SV_INSTANCEID)
 {
     VertexOut output;
 	
     output.Position = float4(inputVertex.Position, 1);
     
-    output.Position = mul(output.Position, SceneData[0].Matrices[MeshID + inputVertex.InstanceID]);
+    output.Position = mul(output.Position, SceneData[0].Matrices[MeshID + InstanceID]);
     output.PositionWorld = output.Position;
     output.Position = mul(output.Position, SceneData[0].View[ViewMatID]);
     output.Position = mul(output.Position, SceneData[0].Projection);
     
     output.Color = inputVertex.Color;
-    output.Normal = mul(float4(inputVertex.Normal, 0.0f), SceneData[0].Matrices[MeshID + inputVertex.InstanceID]).xyz;
+    output.Normal = mul(float4(inputVertex.Normal, 0.0f), SceneData[0].Matrices[MeshID + InstanceID]).xyz;
     output.UV = inputVertex.UV;
     
     return output;

@@ -21,7 +21,7 @@ int main()
 	GEventResponder msgs;
 	GVulkanSurface vulkan;
 
-	if (+win.Create(0, 0, 800, 600, GWindowStyle::WINDOWEDBORDERED))
+	if (+win.Create(0, 0, 1280, 720, GWindowStyle::WINDOWEDBORDERED))
 	{
 		// TODO: Part 1a
 		win.SetWindowName("Vrij Patel + Level Renderer Project - Vulkan");
@@ -43,8 +43,8 @@ int main()
 
 #ifndef NDEBUG
 		const char* debugLayers[] = {
-			//"VK_LAYER_KHRONOS_validation", // standard validation layer
-			"VK_LAYER_RENDERDOC_Capture" // add this if you have installed RenderDoc
+			"VK_LAYER_KHRONOS_validation", // standard validation layer
+			//"VK_LAYER_RENDERDOC_Capture" // add this if you have installed RenderDoc
 			//"VK_LAYER_LUNARG_standard_validation", // add if not on MacOS
 		};		
 

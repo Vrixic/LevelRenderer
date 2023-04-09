@@ -2,7 +2,7 @@
 #define MAX_LIGHTS_PER_DRAW 16
 
 [[vk::binding(0, 1)]]
-Texture2D DiffuseSpecularMap[] : register(t1);
+Texture2D TextureMaps[] : register(t1);
 [[vk::binding(0, 1)]]
 SamplerState Sampler[] : register(s1);
 
@@ -15,9 +15,10 @@ struct Material
     float3 Ambient;
     float Sharpness;
     float3 TransmissionFilter;
-    float OpticalDensity;
+    uint TextureFlags;
+    //float OpticalDensity;
     float3 Emissive;
-    uint IlluminationModel;    
+    uint IlluminationModel;
 };
 
 struct PointLight
@@ -84,6 +85,7 @@ cbuffer ConstantBuffer
 
     float3 Color;
     uint SpecularTextureID;
+    uint NormalTextureID;
 };
 
 struct PixelIn
@@ -146,10 +148,12 @@ float4 CalcSpotLight(uint spotLightIndex, float3 pixelPositionWorld, float3 surf
 // an ultra simple hlsl pixel shader
 // TODO: Part 4b
 float4 main(PixelIn input) : SV_TARGET
-{
-    float4 DiffuseColor = DiffuseSpecularMap[DiffuseTextureID].Sample(Sampler[DiffuseTextureID], input.UV);
-    float  SpecIntensity = DiffuseSpecularMap[SpecularTextureID].Sample(Sampler[SpecularTextureID], input.UV);
+{    
+    float4 DiffuseColor = TextureMaps[DiffuseTextureID].Sample(Sampler[DiffuseTextureID], input.UV);
+    
+    float SpecIntensity = TextureMaps[SpecularTextureID].Sample(Sampler[SpecularTextureID], input.UV);
     float3 SurfaceNormal = normalize(input.Normal);
+    //return float4(SurfaceNormal, 1.0f);
     float3 LightDirection = SceneData[0].LightDirection.xyz;
     
     float4 Result = CalcDirectionalLight(LightDirection, SurfaceNormal, input.PositionWorld, DiffuseColor, SpecIntensity);

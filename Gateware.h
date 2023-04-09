@@ -1,8 +1,7 @@
 #ifndef GATEWARE_H
 #define GATEWARE_H
 
-
-
+#include "imgui/imgui_impl_win32.h"
 /* File created by GW Header Compiler version 1.5.1 */
 
 
@@ -9395,6 +9394,19 @@ namespace GW
 
 #endif
 
+#define LRESULT_IGNORE_VAL 0xfffffff0
+
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam))
+	{
+		return LRESULT_IGNORE_VAL;
+	}
+
+	return false;
+}
+
 
 namespace GW
 {
@@ -14583,6 +14595,12 @@ namespace GW
 
 			static LRESULT CALLBACK GWindowProcedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			{
+				/* IMGUI */
+				if (WndProc(hwnd, uMsg, wParam, lParam) == LRESULT_IGNORE_VAL)
+				{
+					return true;
+				}
+
 				GWindowImplementation* self;
 				if (uMsg == WM_NCCREATE)
 				{
@@ -14676,6 +14694,12 @@ namespace GW
 #endif
 				wndHandle = ::CreateWindowW(className.data(), L"" GATEWARE_WINDOW_NAME, windowsStyle, m_WindowX, m_WindowY, adjustedRect.right - adjustedRect.left, adjustedRect.bottom - adjustedRect.top, NULL, NULL, GetModuleHandleW(0), this);
 #undef GATEWARE_WINDOW_NAME
+
+				/* IMGUI STUFF */
+				IMGUI_CHECKVERSION();
+				ImGui::CreateContext();
+
+				ImGui_ImplWin32_Init(wndHandle);
 
 				if (wndHandle && (m_WindowStyle == SYSTEM::GWindowStyle::FULLSCREENBORDERED || m_WindowStyle == SYSTEM::GWindowStyle::FULLSCREENBORDERLESS))
 				{

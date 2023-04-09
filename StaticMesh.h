@@ -13,7 +13,7 @@
 class StaticMesh
 {
 	/* Rendering information */
-private:
+public:
 	uint32 VertexCount;
 	uint32 IndexCount;
 	uint32 MaterialCount;
@@ -27,12 +27,6 @@ private:
 	uint32 WorldMatrixIndex;
 
 	std::vector<Mesh> SubMeshes;
-
-	/* Debug */
-	
-	bool HasMaterials, HasTextures;
-	
-	/* Debug */
 
 	/* Per Static Mesh Informations */
 private:
@@ -51,9 +45,9 @@ public:
 	Vector3D Color_AABB;
 
 public:
-	StaticMesh(bool hasMaterials, bool hasTextures, uint32 vertexCount, uint32 vertexOffset, uint32 indexCount, uint32 indexOffset, uint32 materialCount,
+	StaticMesh(uint32 vertexCount, uint32 vertexOffset, uint32 indexCount, uint32 indexOffset, uint32 materialCount,
 		uint32 materialIndex, uint32 meshCount, uint32 instanceCount, uint32 worldMatrixIndex, Matrix4D* transformMatrix)
-		: HasMaterials(hasMaterials), HasTextures(hasTextures), VertexCount(vertexCount), VertexOffset(vertexOffset), IndexOffset(indexOffset),
+		: VertexCount(vertexCount), VertexOffset(vertexOffset), IndexOffset(indexOffset),
 		IndexCount(indexCount),	MaterialCount(materialCount), 
 		MaterialIndex(materialIndex), MeshCount(meshCount), InstanceCount(instanceCount), 
 		WorldMatrixIndex(worldMatrixIndex)
@@ -166,6 +160,11 @@ public:
 		return SubMeshes[meshIndex].SpecularTextureIndex == -2 ? 1 : SubMeshes[meshIndex].SpecularTextureIndex;
 	}
 
+	uint32 GetSubMeshNormalTextureIndex(uint32 meshIndex) const
+	{
+		return SubMeshes[meshIndex].NormalTextureIndex == -3 ? 2 : SubMeshes[meshIndex].NormalTextureIndex;
+	}
+
 	uint32 GetSubMeshIndexCount(uint32 meshIndex) const
 	{
 		return SubMeshes[meshIndex].IndexCount;
@@ -216,20 +215,5 @@ public:
 	uint32 GetWorldMatrixIndex() const
 	{
 		return WorldMatrixIndex;
-	}
-
-	void SetTextureSupport(bool support)
-	{
-		HasTextures = support;
-	}
-
-	bool SupportsTextures() const
-	{
-		return HasTextures;
-	}
-
-	bool SupportsMaterials() const
-	{
-		return HasMaterials;
 	}
 };

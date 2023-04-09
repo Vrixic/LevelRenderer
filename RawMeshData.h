@@ -103,6 +103,12 @@ struct Mesh
 	}
 };
 
+struct DirectionalLight
+{
+	Vector4D Direction;
+	Vector4D Color;
+};
+
 struct PointLight
 {
 	/* W component is used for strength of the point light */

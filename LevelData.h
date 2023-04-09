@@ -18,6 +18,10 @@ struct Vertex
 	Vector4D Color;
 };
 
+const uint32 TEXTURE_DIFFUSE_FLAG = 1 << 1;
+const uint32 TEXTURE_SPECULAR_FLAG  = 1 << 2;
+const uint32 TEXTURE_NORMAL_FLAG  = 1 << 3;
+
 struct Material
 {
 	Vector3D	Diffuse;
@@ -27,7 +31,8 @@ struct Material
 	Vector3D	Ambient;
 	float		Sharpness;
 	Vector3D	TransmissionFilter;
-	float		OpticalDensity;
+	uint32		TextureFlags;
+	//float		OpticalDensity;
 	Vector3D	Emissive;
 	uint32		IlluminationModel;
 };

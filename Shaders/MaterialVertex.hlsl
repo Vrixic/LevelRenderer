@@ -12,7 +12,8 @@ struct Material
     float3 Ambient;
     float Sharpness;
     float3 TransmissionFilter;
-    float OpticalDensity;
+    uint TextureFlags;
+    //float OpticalDensity;
     float3 Emissive;
     uint IlluminationModel;
 };
@@ -81,6 +82,7 @@ cbuffer ConstantBuffer
 
     float3 Color;
     uint SpecularTextureID;
+    uint NormalTextureID;
 };
 
 struct VertexIn

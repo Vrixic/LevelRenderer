@@ -53,13 +53,13 @@ struct SceneData
 	Matrix4D Projection;
 
 	/* Lighting Information */
-	Vector4D DirectionalLightDirection;
-	Vector4D DirectionalLightColor;
-	Vector4D SunAmbient;
+	Vector4D AmbientTerm;
 	Vector4D CameraWorldPosition;
 
 	Matrix4D WorldMatrices[MAX_SUBMESH_PER_DRAW];
 	Material Materials[MAX_SUBMESH_PER_DRAW];
+
+	DirectionalLight DirectionalLights[MAX_LIGHTS_PER_DRAW];
 
 	PointLight PointLights[MAX_LIGHTS_PER_DRAW];
 
@@ -68,6 +68,7 @@ struct SceneData
 	/* 16-byte padding for the lights,
 	* X component -> num of point lights
 	* Y component -> num of spot lights
+	* Z component -> num of dir lights
 	*/
 	Vector4D NumOfLights;
 };
@@ -161,10 +162,7 @@ public:
 			GvkHelper::write_to_buffer(*Device, ShaderStorageDatas[CurrentBuffer], ShaderSceneData, SceneDataSizeInBytes);
 			vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *PipelineLayout, 0, 1, &ShaderStorageDescSets[CurrentBuffer], 0, nullptr);
 
-			if (Textures.size() > 2)
-			{
-				vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *PipelineLayout, 1, 1, &ShaderTextureDescSets[CurrentBuffer], 0, nullptr);
-			}
+			vkCmdBindDescriptorSets(CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *PipelineLayout, 1, 1, &ShaderTextureDescSets[CurrentBuffer], 0, nullptr);
 		}
 	}
 
@@ -695,10 +693,7 @@ private:
 
 		ShaderSceneData->Projection = reinterpret_cast<Matrix4D&>(Projection);
 
-		Vector3D DirLight(0.0f, -0.6899f, -0.7239f);
-		ShaderSceneData->DirectionalLightDirection = Vector4D(DirLight, 1.0f);
-		ShaderSceneData->SunAmbient = Vector4D(0.25f, 0.25f, 0.35f, 1.0f);
-		ShaderSceneData->DirectionalLightColor = Vector4D(0.9f, 0.9f, 1.0f, 1.0f);
+		ShaderSceneData->AmbientTerm = Vector4D(0.25f, 0.25f, 0.25f, 1.0f);
 
 		Mesh TempMesh;
 		uint32 MaterialOffset = 0;
@@ -708,9 +703,10 @@ private:
 		uint32 StaticMeshIndex = 0;
 		uint32 TextureOffset = 0;
 
-		ShaderSceneData->NumOfLights = 0;
+		ShaderSceneData->NumOfLights = Vector4D(0, 0, 0, 0);
 		PointLight PLight;
 		SpotLight SLight;
+		DirectionalLight DLight;
 
 		/* store the texture paths so we can load them in later */
 		std::vector<std::string> TexturePaths;
@@ -720,15 +716,7 @@ private:
 
 		srand(time(NULL));
 
-		Vector4D SpotLightColors[] =
-		{
-			{1, 0, 0, 1}, {0, 1, 0, 1}, {0, 0, 1, 1}
-		};
-		Vector4D PointLightColors[] =
-		{
-			{0, 1, 0.898f, 1}, {1, 0, 0.719f, 1},
-			{1, 0.380f, 0, 1}, {0, 1, 0.078, 1}
-		};
+		ShaderSceneData->WorldMatrices[0] = Matrix4D::Identity();
 
 		/* Load the Materices and Materials */
 		for (uint32 i = 0; i < rawData.size(); i++)
@@ -750,22 +738,21 @@ private:
 					Vector4D DirectionVector = (rawData[i].WorldMatrices[0])[2];
 					//DirectionVector.W = 0.2f;
 
-					ShaderSceneData->DirectionalLightDirection = DirectionVector;
-					ShaderSceneData->SunAmbient = (rawData[i].WorldMatrices[0])[1];
+					DLight.Direction = DirectionVector;
+					DLight.Color = (rawData[i].WorldMatrices[0])[1];
+
+					ShaderSceneData->DirectionalLights[static_cast<uint32>(ShaderSceneData->NumOfLights.Z)] = DLight;
+					ShaderSceneData->NumOfLights.Z += 1.0f;
 					break;
 				}
 
 				case Point:
 				{
 					PLight.Position = rawData[i].WorldMatrices[0][3];
-					PLight.Color = (rawData[i].WorldMatrices[0])[1];//PointLightColors[static_cast<uint32>(ShaderSceneData->NumOfLights.X)];
+					PLight.Color = (rawData[i].WorldMatrices[0])[1];
 
-					/*PLight.Color = Vector4D((rand() / static_cast<float>(RAND_MAX)),
-						(rand() / static_cast<float>(RAND_MAX)),
-						(rand() / static_cast<float>(RAND_MAX)), 1.0f);*/
-
-					PLight.AddStrength(2.0f);
-					PLight.SetRadius(6.0f);
+					//PLight.AddStrength(3.0f);
+					//PLight.SetRadius(6.0f);
 
 					ShaderSceneData->PointLights[static_cast<uint32>(ShaderSceneData->NumOfLights.X)] = PLight;
 					ShaderSceneData->NumOfLights.X += 1.0f;
@@ -783,7 +770,7 @@ private:
 					SLight.Position = Position;
 					SLight.ConeDirection = DirectionVector;
 
-					SLight.Color = (rawData[i].WorldMatrices[0])[1];//SpotLightColors[static_cast<uint32>(ShaderSceneData->NumOfLights.Y)];
+					SLight.Color = (rawData[i].WorldMatrices[0])[1];
 
 
 					SLight.AddStrength(2.5f);
@@ -799,32 +786,59 @@ private:
 				continue;
 			}
 
-			outStaticMeshes.push_back(StaticMesh(rawData[i].MaterialCount > 0, HasTextures,
-				rawData[i].VertexCount, VertexOffset, rawData[i].IndexCount, IndexOffset, rawData[i].MaterialCount, MaterialOffset,
-				rawData[i].MeshCount, rawData[i].InstanceCount, WorldMatricesOffset,
-				&ShaderSceneData->WorldMatrices[WorldMatricesOffset]));
-
-			/* Make the debug box for the mesh */
-			outStaticMeshes[StaticMeshIndex].MinBox_AABB = rawData[i].BoxMin_AABB;
-			outStaticMeshes[StaticMeshIndex].MaxBox_AABB = rawData[i].BoxMax_AABB;
+			outStaticMeshes.push_back(StaticMesh(rawData[i].VertexCount, VertexOffset, rawData[i].IndexCount, IndexOffset, rawData[i].MaterialCount, MaterialOffset,
+				rawData[i].MeshCount, rawData[i].InstanceCount, WorldMatricesOffset + 1,
+				&ShaderSceneData->WorldMatrices[WorldMatricesOffset + 1]));
 
 			uint32 TexOffsetPerMesh = 0; // This offset keeps in track of how many meshes actually had a texture
 			for (uint32 j = 0; j < rawData[i].MeshCount; ++j)
 			{
-				uint32 TexMapOffset = 0;
-
 				TempMesh.IndexCount = rawData[i].Meshes[j].drawInfo.indexCount;
 				TempMesh.IndexOffset = rawData[i].Meshes[j].drawInfo.indexOffset;
 				TempMesh.Name = rawData[i].Meshes[j].name;
 				TempMesh.MaterialIndex = rawData[i].Meshes[j].materialIndex;
 
+				outStaticMeshes[StaticMeshIndex].AddSubMesh(TempMesh);
+			}
+
+			for (uint32 j = 0; j < rawData[i].WorldMatrices.size(); ++j)
+			{
+				ShaderSceneData->WorldMatrices[(j + WorldMatricesOffset) + 1] = rawData[i].WorldMatrices[j];
+			}
+
+			if (i == rawData.size() - 1)
+			{
+				continue;
+			}
+
+			/* Make the debug box for the mesh */
+			outStaticMeshes[StaticMeshIndex].MinBox_AABB = rawData[i].BoxMin_AABB;
+			outStaticMeshes[StaticMeshIndex].MaxBox_AABB = rawData[i].BoxMax_AABB;
+
+			for (uint32 j = 0; j < rawData[i].MaterialCount; ++j)
+			{
+				Material Mat;
+				uint32 TextureFlags = 0;
+				Mat.Diffuse = reinterpret_cast<Vector3D&>(rawData[i].Materials[j].attrib.Kd);
+				Mat.Dissolve = rawData[i].Materials[j].attrib.d;
+				Mat.SpecularColor = reinterpret_cast<Vector3D&>(rawData[i].Materials[j].attrib.Ks);
+				Mat.SpecularExponent = rawData[i].Materials[j].attrib.Ns;
+				Mat.Ambient = reinterpret_cast<Vector3D&>(rawData[i].Materials[j].attrib.Ka);
+				Mat.Sharpness = rawData[i].Materials[j].attrib.sharpness;
+				Mat.TransmissionFilter = reinterpret_cast<Vector3D&>(rawData[i].Materials[j].attrib.Tf);
+				//Mat.OpticalDensity = rawData[i].Materials[j].attrib.Ni;
+				Mat.Emissive = reinterpret_cast<Vector3D&>(rawData[i].Materials[j].attrib.Ke);
+				Mat.IlluminationModel = rawData[i].Materials[j].attrib.illum;
+
 				/* Diffuse TextureID */
 				if (rawData[i].Materials[rawData[i].Meshes[j].materialIndex].DiffuseMap.size() > 0)
 				{
-					TempMesh.DiffuseTextureIndex = (j + TextureOffset) + 3; // account for default diffuse texture
+					outStaticMeshes[StaticMeshIndex].SubMeshes[j].DiffuseTextureIndex = TextureOffset + 3; // account for default diffuse texture
 					TexturePaths.push_back(rawData[i].Materials[rawData[i].Meshes[j].materialIndex].DiffuseMap);
 					TexOffsetPerMesh++;
-					TexMapOffset++;
+					TextureOffset++;
+
+					TextureFlags |= TEXTURE_DIFFUSE_FLAG;
 
 					HasTextures = true;
 				}
@@ -836,10 +850,12 @@ private:
 				/* Specular TextureID */
 				if (rawData[i].Materials[rawData[i].Meshes[j].materialIndex].SpecularMap.size() > 0)
 				{
-					TempMesh.SpecularTextureIndex = (j + TextureOffset + TexMapOffset) + 3;
+					outStaticMeshes[StaticMeshIndex].SubMeshes[j].SpecularTextureIndex = TextureOffset + 3;
 					TexturePaths.push_back(rawData[i].Materials[rawData[i].Meshes[j].materialIndex].SpecularMap);
 					TexOffsetPerMesh++;
-					TexMapOffset++;
+					TextureOffset++;
+
+					TextureFlags |= TEXTURE_SPECULAR_FLAG;
 
 					HasTextures = true;
 				}
@@ -847,15 +863,17 @@ private:
 				{
 					TempMesh.SpecularTextureIndex = -2;
 				}
-				
+
 				/* Normal Textures */
 				if (rawData[i].Materials[rawData[i].Meshes[j].materialIndex].NormalMap.size() > 0)
 				{
-					TempMesh.NormalTextureIndex = (j + TextureOffset + TexMapOffset) + 3;
+					outStaticMeshes[StaticMeshIndex].SubMeshes[j].NormalTextureIndex = TextureOffset + 3;
 					TexturePaths.push_back(rawData[i].Materials[rawData[i].Meshes[j].materialIndex].NormalMap);
 					TexOffsetPerMesh++;
-					TexMapOffset++;
-				
+					TextureOffset++;
+
+					TextureFlags |= TEXTURE_NORMAL_FLAG;
+
 					HasTextures = true;
 				}
 				else
@@ -863,36 +881,13 @@ private:
 					TempMesh.NormalTextureIndex = -3;
 				}
 
-				//outStaticMeshes[StaticMeshIndex].Meshes.push_back(TempMesh);
-				outStaticMeshes[StaticMeshIndex].AddSubMesh(TempMesh);
-			}
-
-			outStaticMeshes[StaticMeshIndex].SetTextureSupport(HasTextures);
-
-			for (uint32 j = 0; j < rawData[i].WorldMatrices.size(); ++j)
-			{
-				ShaderSceneData->WorldMatrices[j + WorldMatricesOffset] = rawData[i].WorldMatrices[j];
-			}
-
-			for (uint32 j = 0; j < rawData[i].MaterialCount; ++j)
-			{
-				Material Mat;
-				Mat.Diffuse = reinterpret_cast<Vector3D&>(rawData[i].Materials[j].attrib.Kd);
-				Mat.Dissolve = rawData[i].Materials[j].attrib.d;
-				Mat.SpecularColor = reinterpret_cast<Vector3D&>(rawData[i].Materials[j].attrib.Ks);
-				Mat.SpecularExponent = rawData[i].Materials[j].attrib.Ns;
-				Mat.Ambient = reinterpret_cast<Vector3D&>(rawData[i].Materials[j].attrib.Ka);
-				Mat.Sharpness = rawData[i].Materials[j].attrib.sharpness;
-				Mat.TransmissionFilter = reinterpret_cast<Vector3D&>(rawData[i].Materials[j].attrib.Tf);
-				Mat.OpticalDensity = rawData[i].Materials[j].attrib.Ni;
-				Mat.Emissive = reinterpret_cast<Vector3D&>(rawData[i].Materials[j].attrib.Ke);
-				Mat.IlluminationModel = rawData[i].Materials[j].attrib.illum;
+				Mat.TextureFlags = TextureFlags;
 
 				ShaderSceneData->Materials[j + MaterialOffset] = Mat;
 			}
 
 			MaterialOffset += rawData[i].MaterialCount;
-			TextureOffset += TexOffsetPerMesh;
+			//TextureOffset += TexOffsetPerMesh;
 			WorldMatricesOffset += rawData[i].WorldMatrices.size();
 			VertexOffset += rawData[i].VertexCount;
 			IndexOffset += rawData[i].IndexCount;
@@ -908,5 +903,11 @@ private:
 			LoadTexture(TexturePaths[i].c_str(), Textures[i]);
 			CreateDefaultImageViewFromTexture(&Textures[i], Textures[i].View);
 		}
+	}
+
+public:
+	VkDescriptorPool GetDescriptorPool() const
+	{
+		return ShaderStoragePool;
 	}
 };

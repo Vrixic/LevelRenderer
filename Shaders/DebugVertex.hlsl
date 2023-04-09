@@ -12,10 +12,16 @@ struct Material
     float3 Ambient;
     float Sharpness;
     float3 TransmissionFilter;
-    float OpticalDensity;
+    uint TextureFlags;
+    //float OpticalDensity;
     float3 Emissive;
     uint IlluminationModel;
-    
+};
+
+struct DirectionalLight
+{
+    float4 Direction;
+    float4 Color;
 };
 
 struct PointLight
@@ -36,6 +42,7 @@ struct SpotLight
     float4 Color;
     
     /* W component - outer cone ratio*/
+    float4 ConeDirection;
 };
 
 struct SceneDataGlobal
@@ -44,15 +51,15 @@ struct SceneDataGlobal
     float4x4 View[3];
     float4x4 Projection;
 
-	/* Lighting Information */
-    float4 LightDirection;
-    float4 LightColor;
+	/* Lighting Information */    
     float4 SunAmbient;
     float4 CameraWorldPosition;
     
     /* Per sub-mesh transform and material data */
     float4x4 Matrices[MAX_SUBMESH_PER_DRAW]; // World space matrices
-    Material Materials[MAX_SUBMESH_PER_DRAW]; // color/texture of surface info of all meshes
+    Material Materials[MAX_SUBMESH_PER_DRAW]; // color/texture of surface info of all meshes    
+    
+    DirectionalLight DirectionalLights[MAX_LIGHTS_PER_DRAW];
     
     PointLight PointLights[MAX_LIGHTS_PER_DRAW];
 
@@ -81,6 +88,7 @@ cbuffer ConstantBuffer
 
     float3 Color;
     uint SpecularTextureID;
+    uint NormalTextureID;
 };
 
 struct VertexIn

@@ -1,6 +1,15 @@
 #define MAX_SUBMESH_PER_DRAW 512
 #define MAX_LIGHTS_PER_DRAW 16
 
+#define TEXTURE_DIFFUSE_FLAG 0x00000001
+#define TEXTURE_SPECULAR_FLAG 0x00000002
+#define TEXTURE_NORMAL_FLAG 0x00000003
+
+[[vk::binding(0, 1)]]
+Texture2D TextureMaps[] : register(t1);
+[[vk::binding(0, 1)]]
+SamplerState Sampler[] : register(s1);
+
 struct Material
 {
     float3 Diffuse;
@@ -10,10 +19,16 @@ struct Material
     float3 Ambient;
     float Sharpness;
     float3 TransmissionFilter;
-    float OpticalDensity;
+    uint TextureFlags;
+    //float OpticalDensity;
     float3 Emissive;
     uint IlluminationModel;
-    
+};
+
+struct DirectionalLight
+{
+    float4 Direction;
+    float4 Color;
 };
 
 struct PointLight
@@ -34,6 +49,7 @@ struct SpotLight
     float4 Color;
     
     /* W component - outer cone ratio*/
+    float4 ConeDirection;
 };
 
 struct SceneDataGlobal
@@ -42,15 +58,15 @@ struct SceneDataGlobal
     float4x4 View[3];
     float4x4 Projection;
 
-	/* Lighting Information */
-    float4 LightDirection;
-    float4 LightColor;
+	/* Lighting Information */    
     float4 SunAmbient;
     float4 CameraWorldPosition;
     
     /* Per sub-mesh transform and material data */
     float4x4 Matrices[MAX_SUBMESH_PER_DRAW]; // World space matrices
-    Material Materials[MAX_SUBMESH_PER_DRAW]; // color/texture of surface info of all meshes
+    Material Materials[MAX_SUBMESH_PER_DRAW]; // color/texture of surface info of all meshes    
+    
+    DirectionalLight DirectionalLights[MAX_LIGHTS_PER_DRAW];
     
     PointLight PointLights[MAX_LIGHTS_PER_DRAW];
 
@@ -74,11 +90,16 @@ cbuffer ConstantBuffer
     uint MaterialID;
 
     uint DiffuseTextureID;
-    //uint SpecularTextureID;
 
     uint ViewMatID;
 
     float3 Color;
+    uint SpecularTextureID;
+    
+    float3 FresnelColor; // 12 bytes
+    uint NormalTextureID;
+
+    uint Padding[20];
 };
 
 struct PixelIn
@@ -94,6 +115,5 @@ struct PixelIn
 // TODO: Part 4b
 float4 main(PixelIn input) : SV_TARGET
 {
-    //return SceneData[0].Materials[MaterialID];
     return float4(Color, 1);
 }

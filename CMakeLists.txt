@@ -7,14 +7,6 @@ ADD_DEFINITIONS(-DUNICODE)
 ADD_DEFINITIONS(-D_UNICODE)
 
 set(SHADERS
-	Shaders/TextureVertex.hlsl
-	Shaders/TexturePixel.hlsl
-	Shaders/BasicVertex.hlsl
-	Shaders/BasicPixel.hlsl
-	Shaders/DebugVertex.hlsl
-	Shaders/DebugPixel.hlsl
-	Shaders/MaterialVertex.hlsl
-	Shaders/MaterialPixel.hlsl
 )
 
 set(SOURCE
@@ -43,6 +35,14 @@ set(SOURCE
 	Math/VrixicMath.cpp
 	Math/VrixicMathDirectX.h
 	Math/VrixicMathHelper.h
+	
+	imgui/imgui.cpp
+	imgui/imgui_demo.cpp
+	imgui/imgui_draw.cpp
+	imgui/imgui_impl_vulkan.cpp
+	imgui/imgui_tables.cpp
+	imgui/imgui_widgets.cpp
+	imgui/imgui_impl_win32.cpp
 )
 
 if (WIN32)
@@ -88,9 +88,6 @@ endif(APPLE)
 
 # add support for ktx texture loading
 include_directories(${CMAKE_SOURCE_DIR}/ktx/include)
-
-# add support for ktx texture loading
-include_directories(${CMAKE_SOURCE_DIR}/imgui)
 
 if (WIN32)
 	# Find the libraries

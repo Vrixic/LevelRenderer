@@ -387,6 +387,7 @@ bool FileHelper::FillRawMeshDataFromH2BFile(const char* filePath, H2B::Parser* p
 			Mat.attrib = parser->materials[i].attrib;
 			Mat.DiffuseMap = std::string(parser->materials[i].map_Kd == nullptr ? "" : parser->materials[i].map_Kd);
 			Mat.SpecularMap = std::string(parser->materials[i].map_Ks == nullptr ? "" : parser->materials[i].map_Ks);
+			Mat.NormalMap = std::string(parser->materials[i].bump == nullptr ? "" : parser->materials[i].bump);
 			outMesh.Materials.push_back(Mat);
 		}
 
